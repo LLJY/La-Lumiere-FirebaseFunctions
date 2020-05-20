@@ -1,0 +1,12 @@
+{
+  "type": "service_account",
+  "project_id": "la-lumire",
+  "private_key_id": "649fedfab2c410ec4c9796ae117d232db4159bc2",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCZPgiZgxbVO6EE\nIWSPWmOYixW35rzX3MJw3wqDj4NzlL/zyaDP+2t8Cn9ro2AEkhxnai6RasY0fgld\nAmy9ekN7IpspMJHBWA/bIx5xSLry5hZgt111e3Hugd0iiE8RRPQ4KQrGtJX/WLRT\n2o2kPiodNLGppvaG/h7ZpjeXsNnVUcIBlPMvPPA41XVbfhMCQWIHuHsKsGCB9W6t\nqKIOsgYwOm+95u5FYUaLrHFQ6OycmOZSRolD/21+ucIShQLW9tNvjq84604gHG9h\np11am3kNYLKQRIlklDvDhqMLlB/rIT6sD54TljeRsppZNKmG+VbwDynRdmQD9RJA\n2sjAzaWpAgMBAAECggEART/zQuwqdVHtAaDVgLKoL1crCWAMFsB8XeVtKua/0It3\n8wM62MIVYIid7FZ4HZipnVIumShXSYFrWcyutzF5LTwGQibgty7Ee5LzPt5PHVU8\n55f1dBHE+rNU6zYOBQ/UDUz+waz529qKIxqwx3gQMAKQBsqcvYQ5DMJAfRw+VFda\nvJ+wWwZRdwipZH96NftjZoJVgQMFpbmcM9tsFp1rQ61S2ZBsLX3OFeCMFUDpe+Pi\nA0z5E5aHQqLGs91NAS14Ihqc39RB8pdi2uVcGUKP61h/JoA2MaWdFcvR0yPmOuGk\n/UH5vpZQoodoDh2SPeuF+zuQ1DZJsZ+c3gCmoc4ywQKBgQDRNUQzsUMSjLF+9TT3\naNibi1vY5eiaWySRn3wHvN3D0X/dyTieXBNqY67cZgbsCcIAFHCtHiV1i8retGy2\nlLCrDPc1Pf+5x955uq2A4UZM8NGdFS09xZzEMxjbQmoF/WaGaimtKIl73asCc8af\nmyrpTj0rZFeBdG2OTkzfwseD8wKBgQC7hE6zFyikk29Vk7X2w2e54j325RZF3lnn\n3WzqGmzuIjdDemRojCO3MoNxUsZaONOZJPMSxd9ExDzy8D9KwC2Y98wt0qoCGTuz\nG8WFoZczvIDi3tA8ZDlPfuz0MLRS65Y1boKUHI/aDbgdloxS/AHX7d+4TuiwJlaR\nqP+OPm6C8wKBgQC1uR4wBLbtQvbe/+HtUs5sdiXnBvYANlFSiQU0t3KuqKj4HtSm\ngfZ/gG0glyNGHse8SAUD617AdxhWUMTp58h6HD4TqnIajymJ9YTGoWfuZ3S8jOuK\nb7/XkUbzFgKAh3dqJIdlGQQrawYjkCuk8iTZGZP6wCNemKKdbRhLeabSzwKBgQCg\nWLYXbKFDghN9IS9DkLqc+Dq2ahUOr+E/ZVfiI7CsPTP2jq1XvSY5XIeLmxWkRt2i\nIjd9ARk3q3rW3tuwZv9Ww+aj9HWOD9e+A+x2pcQu6G1qEtAMJEPhl462DQPVuECc\n9h/Q2U+lTX/4RSk/OOG2rGFXMJrHLjFuow3Mq9RCQwKBgDx8YxxUzbstpp45er2l\nTalyLqhlD0cfx0ZvwGCw/f0mIzVRvp71/+zkNbu4eVbOV3trhJrED6kgs2llOUeL\nRXbjbtyff17hiEPSBcJLy+sigRqfwJ5DiuK7t/Pd1Pg0etcOvj4ui7YaEQYqwcVZ\nb/BMDPTOkxr2usdmv5pm9vup\n-----END PRIVATE KEY-----\n",
+  "client_email": "firebase-adminsdk-guwbk@la-lumire.iam.gserviceaccount.com",
+  "client_id": "109303967296804660599",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-guwbk%40la-lumire.iam.gserviceaccount.com"
+}
