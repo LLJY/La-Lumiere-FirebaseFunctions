@@ -79,6 +79,7 @@ class Seller {
 }
 
 export const getUserItems = functions.https.onRequest(async (data, response) => {
+    try{
     const arrayItem = new Array<Item>();
     let itemSeller: Seller;
     // we do not have a system for user preference, so for now just list all items.
@@ -113,6 +114,11 @@ export const getUserItems = functions.https.onRequest(async (data, response) => 
     // sort by performance level
     arrayItem.sort(x => x.Performance);
     response.send(arrayItem);
+}catch (err){
+    // log the error
+    console.log(err);
+    response.status(500).send(err);
+}
 });
 export const helloWorld = functions.https.onRequest((request, response) => {
     response.send("Hello from Firebase!");
