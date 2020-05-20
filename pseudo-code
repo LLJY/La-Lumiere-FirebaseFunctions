@@ -1,0 +1,58 @@
+Item Model{
+    Database (Listing collection)
+    ID, Title, isAdvert, (Model)Seller, Likes, Price, Rating, Description, TransactionInformation, Category, isDiscounted, isActive, Stock, (sub collection) Images, NumberSold, ProcurementDetails, ListedTimestamp
+    
+    User Screen {
+        Function{
+            GetUserItems(UserUID) : Listings{
+             get all fields from database;
+             calculate listing performance and order by performance value;
+             if advertising not null, isAdvert true;
+             check if just restocked, discounted or running out.
+             sort by most user relevant and generate 3 lists;
+             list1 = (Most popular Items - best performance);
+             list2 = (People user follows);
+             list3 = (User's most liked category);
+             return values.
+            }
+            GetCategories(UserUID) : Category {
+                return most relevant category.
+            }
+        }
+        Listings Model : List<listing> Title, isAdvert, SellerUID, Likes, Price, Rating, Description, TransactionInformation, Category, Available Stock, List<ImageUri>, Procurement Information, Payment Type, Listed Timestamp, StockStatus.
+        Enum Stock StockStatus - STATUS_DISCOUNTED, STATUS_RUNNING_OUT, STATUS_RESTOCKED
+    }
+    
+    Item Screen{
+     pass data in intent from Home
+    }
+    
+    Add Item Screen{
+        Function{
+            AddItem(Item Object){
+             insert into database, some fields will be nulled or inheritance is used;
+            }
+        }
+    }
+    
+    Manage Listings Screen{
+        Function{
+            GetSellerItems(SellerUID) : List<Items>{
+                get from database items where uid = seller;
+                calculate item performance;(or date)
+                return item orderby performance;
+            }
+            PostItem(SellerUID, Item) : boolean (success){
+                convert item into database values;
+                add values like timestamp;
+                commit item;
+                return if successful or not;
+            }
+        }
+    }
+    
+    
+    
+
+    
+    }
