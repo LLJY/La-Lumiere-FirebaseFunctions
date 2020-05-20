@@ -1,6 +1,6 @@
 Item Model{
     Database (Listing collection)
-    ID, Title, isAdvert, (Model)Seller, Likes, Price, Rating, Description, TransactionInformation, Category, isDiscounted, isActive, Stock, (sub collection) Images, NumberSold, ProcurementDetails, ListedTimestamp
+    AdvertismentPoints, Category, Description, Likes, ListedTime, NumberSold, Price, ProcurementInformation, Rating, SellerUID, Stock, Title, TransactionInformation, isActive, isDiscounted, isRestocked
     
     User Screen {
         Function{
@@ -19,8 +19,8 @@ Item Model{
                 return most relevant category.
             }
         }
-        Listings Model : List<listing> Title, isAdvert, SellerUID, Likes, Price, Rating, Description, TransactionInformation, Category, Available Stock, List<ImageUri>, Procurement Information, Payment Type, Listed Timestamp, StockStatus.
-        Enum Stock StockStatus - STATUS_DISCOUNTED, STATUS_RUNNING_OUT, STATUS_RESTOCKED
+        Listings Model : List<listing> Title, isAdvert, (Model)Seller, Likes, Price, Rating, Description, TransactionInformation, Category, Available Stock, List<ImageUri>, Procurement Information, Payment Type, Listed Timestamp, StockStatus.
+        Enum Stock StockStatus - STATUS_NORMAL, STATUS_RESTOCKED, STATUS_RUNNING_OUT , STATUS_DISCOUNTED
     }
     
     Item Screen{
