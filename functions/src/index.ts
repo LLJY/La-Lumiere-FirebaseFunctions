@@ -1,23 +1,11 @@
-import * as functions from 'firebase-functions';
-import * as admin from 'firebase-admin';
-// Start writing Firebase Functions
-// https://firebase.google.com/docs/functions/typescript
-var firebaseConfig = {
-    apiKey: "AIzaSyBi0vKkdYtAclkL9-ZYYn-mBZmCu6GOGjU",
-    authDomain: "project-id.firebaseapp.com",
-    databaseURL: "https://project-id.firebaseio.com",
-    projectId: "project-id",
-    storageBucket: "project-id.appspot.com",
-    messagingSenderId: "sender-id",
-    appId: "app-id",
-    measurementId: "G-measurement-id",
-};
+import * as admin from "firebase-admin";
+import * as functions from "firebase-functions";
 admin.initializeApp();
 const db = admin.firestore();
 class Item {
-    //this is the items class we will pass to the app.
+    // this is the items class we will pass to the app.
     public Title: string;
-    public Seller: Seller;
+    public seller: Seller;
     public Likes: number;
     public ListedTime: Date;
     public Rating: number;
@@ -27,14 +15,14 @@ class Item {
     public PaymentType: string;
     public Category: string;
     public Stock: number;
-    public Images: Array<string>;
+    public Images: string[];
     public Performance: number;
     public isAdvert: boolean;
-    //mapped to an enum
+    // mapped to an enum
     public StockStatus: number;
-    constructor(Title: string, Seller: Seller, Likes: number, ListedTime: Date, Rating: number, Description: string, TransactionInformation: string, ProcurementInformation: string, PaymentType: string, Category: string, Stock: number, Image1: string, Image2: string, Image3: string, Image4: string, AdvertisementPoints: number, isDiscounted: boolean, isRestocked: boolean) {
+    constructor(Title: string, seller: Seller, Likes: number, ListedTime: Date, Rating: number, Description: string, TransactionInformation: string, ProcurementInformation: string, PaymentType: string, Category: string,Stock: number, Image1: string, Image2: string, Image3: string, Image4: string, AdvertisementPoints: number, isDiscounted: boolean, isRestocked: boolean) {
         this.Title = Title;
-        this.Seller = Seller;
+        this.seller = seller;
         this.Likes = Likes;
         this.ListedTime = ListedTime;
         this.Rating = Rating;
@@ -44,20 +32,20 @@ class Item {
         this.PaymentType = PaymentType;
         this.Category = Category;
         this.Stock = Stock;
-        //convert stock status into the enum for the application
-        //it is intended for isDiscounted to take priority over the rest as it contributes to the most score in the algorithm
+        // convert stock status into the enum for the application
+        // it is intended for isDiscounted to take priority over the rest as it contributes to the most score in the algorithm
         if (isDiscounted) {
-            this.StockStatus = 4
+            this.StockStatus = 4;
         } else if (Stock <= 10) {
-            //STATUS_RUNNING_OUT
+            // STATUS_RUNNING_OUT
             this.StockStatus = 3;
         } else if (isRestocked) {
-            this.StockStatus = 2
+            this.StockStatus = 2;
         } else {
-            this.StockStatus = 1
+            this.StockStatus = 1;
         }
         const images = new Array<string>();
-        //if the image urls are null or empty, do not add them to the list.
+        // if the image urls are null or empty, do not add them to the list.
         if (Image1 as string) {
             images.push(Image1);
         }
@@ -71,16 +59,16 @@ class Item {
             images.push(Image4);
         }
         this.Images = images;
-        //performance on the list is calculated by number of likes over time multiplied by advertisement points
-        this.Performance = (Likes / ((new Date).valueOf() - ListedTime.valueOf()) * Math.max(AdvertisementPoints, 1));
+        // performance on the list is calculated by number of likes over time multiplied by advertisement points
+        this.Performance = (Likes / ((new Date()).valueOf() - ListedTime.valueOf()) * Math.max(AdvertisementPoints, 1));
     }
 
-
 }
+
 class Seller {
-    Name: string;
-    UID: string;
-    pictureURL: string;
+    public Name: string;
+    public UID: string;
+    public pictureURL: string;
 
     constructor(name: string, uid: string, pictureurl: string) {
         this.Name = name;
@@ -91,49 +79,47 @@ class Seller {
 }
 
 export const getUserItems = functions.https.onRequest((data, response) => {
-    var arrayItem = new Array<any>();
-    var itemSeller: Seller;
-    //add a dummy limit for testing
-    //let limit = 12;
-    //we do not have a system for user preference, so for now just list all items.
-    const itemsRef = db.collection('users');
-    itemsRef.get().then(sellerSnapshot => {
-        //promises with the right datatype (not necessary but good practice)
+    const arrayItem = new Array<any>();
+    let itemSeller: Seller;
+    // we do not have a system for user preference, so for now just list all items.
+    const itemsRef = db.collection("users");
+    itemsRef.get().then((sellerSnapshot) => {
+        // promises with the right datatype (not necessary but good practice)
         const promises = new Array<Promise<FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData>>>();
-        sellerSnapshot.forEach(sellerDoc => {
+        sellerSnapshot.forEach((sellerDoc) => {
             const sellerData = sellerDoc.data();
-            //check for non null / empty strings
+            // check for non null / empty strings
             if (sellerData.Name as string && sellerData.UID as string) {
-                //this is all the seller information we need
-                itemSeller = new Seller(sellerData.Name, sellerData.UID, ""); //placeholder profile picture
-                var refItem = sellerDoc.ref.collection('Items')
-                //push all the promises to a list so we can run all our queries in parallel
+                // this is all the seller information we need
+                itemSeller = new Seller(sellerData.Name, sellerData.UID, ""); // placeholder profile picture
+                const refItem = sellerDoc.ref.collection("Items");
+                // push all the promises to a list so we can run all our queries in parallel
                 promises.push(refItem.get());
             }
         });
-        //return the promise so we can run a .then and "await" for them all
-        return Promise.all(promises)
+        // return the promise so we can run a .then and "await" for them all
+        return Promise.all(promises);
     })
-        //going through the promises
-        .then(itemPromise => {
-            //for every snapshot
-            itemPromise.forEach(itemSnapshot => {
-                //for every item
-                itemSnapshot.forEach(itemDoc => {
-                    //get the data
-                    var itemData = itemDoc.data();
-                    //if title is not null, the rest of the fields are unlikely to be.
+        // going through the promises
+        .then((itemPromise) => {
+            // for every snapshot
+            itemPromise.forEach((itemSnapshot) => {
+                // for every item
+                itemSnapshot.forEach((itemDoc) => {
+                    // get the data
+                    const itemData = itemDoc.data();
+                    // if title is not null, the rest of the fields are unlikely to be.
                     if (itemData.Title as string) {
-                        //the rest of the logic to convert from database to model is in the constructor
+                        // the rest of the logic to convert from database to model is in the constructor
                         arrayItem.push(new Item(itemData.Title, itemSeller, itemData.Likes, itemData.ListedTime, itemData.Rating, itemData.Description, itemData.TransactionInformation, itemData.ProcurementInformation, itemData.PaymentType, itemData.Category, itemData.Stock, itemData.Image1, itemData.Image2, itemData.Image3, itemData.Image4, itemData.AdvertisementPoints, itemData.isDiscounted, itemData.isRestocked));
                     }
                 });
             });
             arrayItem.sort(x => x.Performance);
             response.send(arrayItem);
-        }).catch(error => {
+        }).catch((error) => {
             console.error(error);
-            response.send(error);
+            response.status(500).send(error);
         });
 });
 export const helloWorld = functions.https.onRequest((request, response) => {
