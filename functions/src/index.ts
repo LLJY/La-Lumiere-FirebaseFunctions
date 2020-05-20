@@ -82,8 +82,7 @@ export const getUserItems = functions.https.onRequest(async (data, response) => 
     const arrayItem = new Array<Item>();
     let itemSeller: Seller;
     // we do not have a system for user preference, so for now just list all items.
-    const itemsRef = db.collection("users");
-    const sellerSnapshot = await itemsRef.get();
+    const sellerSnapshot = await db.collection("users").get();
     // this is the list of promises/awaitables for all items
     const promises = new Array<Promise<FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData>>>();
     sellerSnapshot.forEach((sellerDoc) => {
