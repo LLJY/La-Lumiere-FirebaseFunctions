@@ -5,6 +5,7 @@ const db = admin.firestore();
 const mAuth = admin.auth();
 class Item {
     // this is the items class we will pass to the app.
+    public ListingID: string;
     public Title: string;
     public sellerName: string;
     public sellerUID: string;
@@ -23,7 +24,8 @@ class Item {
     // mapped to an enum
     public StockStatus: number;
     //constructor will take the raw data from the database and convert it into the object.
-    constructor(Title: string, seller: Seller, Likes: number, ListedTime: FirebaseFirestore.Timestamp, Rating: number, Description: string, TransactionInformation: string, ProcurementInformation: string, Category: string, Stock: number, Image1: string, Image2: string, Image3: string, Image4: string, AdvertisementPoints: number, isDiscounted: boolean, isRestocked: boolean) {
+    constructor(ListingID: string, Title: string, seller: Seller, Likes: number, ListedTime: FirebaseFirestore.Timestamp, Rating: number, Description: string, TransactionInformation: string, ProcurementInformation: string, Category: string, Stock: number, Image1: string, Image2: string, Image3: string, Image4: string, AdvertisementPoints: number, isDiscounted: boolean, isRestocked: boolean) {
+        this.ListingID = ListingID;
         this.Title = Title;
         this.sellerName = seller.Name;
         this.sellerUID = seller.UID;
@@ -100,7 +102,6 @@ export const getHottestItems = functions.region("asia-east2").https.onRequest(as
             const refItem = sellerDoc.ref.collection("Items");
             // push all the promises to a list so we can run all our queries in parallel
             promises.push(refItem.get());
-
         }
     });
     // wait for all promises to finish and get a list of snapshots
@@ -112,7 +113,7 @@ export const getHottestItems = functions.region("asia-east2").https.onRequest(as
             // if title is not null, the rest of the fields are unlikely to be.
             if (itemData.Title as string) {
                 // the rest of the logic to convert from database to model is in the constructor
-                arrayItem.push(new Item(itemData.Title, itemSeller, itemData.Likes, itemData.ListedTime, itemData.Rating, itemData.Description, itemData.TransactionInformation, itemData.ProcurementInformation, itemData.Category, itemData.Stock, itemData.Image1, itemData.Image2, itemData.Image3, itemData.Image4, itemData.AdvertisementPoints, itemData.isDiscounted, itemData.isRestocked));
+                arrayItem.push(new Item(ItemDoc.id, itemData.Title, itemSeller, itemData.Likes, itemData.ListedTime, itemData.Rating, itemData.Description, itemData.TransactionInformation, itemData.ProcurementInformation, itemData.Category, itemData.Stock, itemData.Image1, itemData.Image2, itemData.Image3, itemData.Image4, itemData.AdvertisementPoints, itemData.isDiscounted, itemData.isRestocked));
             }
         });
     });
@@ -125,6 +126,7 @@ export const getHottestItems = functions.region("asia-east2").https.onRequest(as
     response.status(500).send(err);
 }
 });
+
 export const helloWorld = functions.region("asia-east2").https.onRequest((request, response) => {
     response.send("Hello from Firebase!");
 });
