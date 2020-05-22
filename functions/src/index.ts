@@ -92,22 +92,27 @@ export const getHottestItems = functions.region("asia-east2").https.onRequest(as
     try {
         var arrayItem = new Array<Item>();
         let itemSeller: Seller;
-        // we do not have a system for user preference, so for now just list all items.
         const sellerSnapshot = await db.collection("users").get();
         // this is the list of promises/awaitables for all items
         const promises = new Array<Promise<FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData>>>();
-        sellerSnapshot.forEach((sellerDoc) => {
+        const arrayDoc = new Array<FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>>();
+        //convert all the seller snapshots into a list we can process
+        sellerSnapshot.forEach(doc=>{
+            arrayDoc.push(doc);
+        });
+        for (let index = 0; index < arrayDoc.length; index++) {
+            const sellerDoc = arrayDoc[index];
             const sellerData = sellerDoc.data();
             // check for non null / empty strings
             if (sellerData.Name as string && sellerData.UID as string) {
+                const sellerAuth = await mAuth.getUser(sellerData.UID);
                 // this is all the seller information we need
-                itemSeller = new Seller(sellerData.Name, sellerData.UID, ""); // placeholder profile picture
+                itemSeller = new Seller(sellerAuth.displayName, sellerData.UID, sellerAuth.photoURL); // placeholder profile picture
                 const refItem = sellerDoc.ref.collection("Items");
                 // push all the promises to a list so we can run all our queries in parallel
                 promises.push(refItem.get());
             }
-        });
-        // wait for all promises to finish and get a list of snapshots
+        }
         const itemSnapshots = await Promise.all(promises);
         itemSnapshots.forEach((ItemSnapshot) => {
             ItemSnapshot.forEach((ItemDoc) => {
@@ -133,22 +138,42 @@ export const getHottestItems = functions.region("asia-east2").https.onRequest(as
         response.status(500).send(err);
     }
 });
+
+/**
+ * Simple function that gets all the item categories
+ */
+export const getCategories = functions.region("asia-east2").https.onRequest(async (data, response) => {
+    try {
+        const categoriesSnapshot = await db.collection("Categories").get();
+        const categories = new Array<string>();
+        categoriesSnapshot.forEach((categoryDoc) => {
+            //add category name to the list
+            console.log(categoryDoc.data().Name);
+            categories.push(categoryDoc.data().Name);
+        });
+        response.send(categories);
+    } catch (err) {
+        console.log(err);
+        response.status(500).send(err);
+    }
+});
+
 const markLikedItems = async function (userID: string, Items: Array<Item>) {
     try {
         // there is only one user so limit one
-        const userDocs = await db.collection('users').where("UID", "==" , userID).limit(1).get();
-        let userDoc : FirebaseFirestore.QueryDocumentSnapshot;
+        const userDocs = await db.collection('users').where("UID", "==", userID).limit(1).get();
+        let userDoc: FirebaseFirestore.QueryDocumentSnapshot;
         // run a foreach, there is only 1 but this is the only way to get the item...
-        userDocs.forEach((doc)=>{
-            userDoc = doc; 
+        userDocs.forEach((doc) => {
+            userDoc = doc;
         })
         const likedItems = await userDoc.ref.collection('LikedItems').get();
         likedItems.forEach(likedDoc => {
             const likedItemData = likedDoc.data();
-            if(likedItemData.ItemID){
+            if (likedItemData.ItemID) {
                 // lambda that marks every item with the same listing id as a liked item as liked.
                 // the ternary is to avoid marking items already true as false again.
-                Items = Items.map(x =>{ x.userLiked = x.userLiked ? true : x.ListingID == likedItemData.ItemID; return x});
+                Items = Items.map(x => { x.userLiked = x.userLiked ? true : x.ListingID == likedItemData.ItemID; return x });
             }
         });
     } catch (err) {
