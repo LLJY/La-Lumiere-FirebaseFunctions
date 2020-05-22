@@ -121,7 +121,7 @@ export const getHottestItems = functions.region("asia-east2").https.onRequest(as
             });
         });
         // sort by performance level
-        arrayItem.sort(x => x.Performance);
+        arrayItem = arrayItem.sort(x => x.Performance);
         if (data.body.userID) {
             arrayItem = await markLikedItems(data.body.userID, arrayItem);
         }
