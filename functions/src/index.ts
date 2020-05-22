@@ -122,6 +122,7 @@ export const getHottestItems = functions.region("asia-east2").https.onRequest(as
         });
         // sort by performance level
         arrayItem.sort(x => x.Performance);
+        const wait = (ms) => new Promise(res => setTimeout(res, ms));
         if (data.body.userID) {
             arrayItem = await markLikedItems(data.body.userID, arrayItem);
         }
@@ -142,8 +143,7 @@ const markLikedItems = async function (userID: string, Items: Array<Item>) {
             console.log(likedItemData.ItemID);
             // lambda that marks every item with the same listing id as a liked item as liked.
             // the ternary is to avoid marking items already true as false again.
-
-            Items.map(x => x.userLiked = x.userLiked ? true : x.ListingID == likedItemData.ItemID);
+            Items = Items.map(x =>{ x.userLiked = x.userLiked ? true : x.ListingID == likedItemData.ItemID; return x});
         });
     } catch (err) {
         console.log(err);
