@@ -83,7 +83,7 @@ class Seller {
 
 }
 
-export const getUserItems = functions.region("asia-east2").https.onRequest(async (data, response) => {
+export const getHottestItems = functions.region("asia-east2").https.onRequest(async (data, response) => {
     try{
     const arrayItem = new Array<Item>();
     let itemSeller: Seller;
