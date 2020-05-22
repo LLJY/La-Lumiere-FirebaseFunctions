@@ -21,6 +21,8 @@ class Item {
     public Images: string[];
     public Performance: number;
     public isAdvert: boolean;
+    //false by default
+    public userLiked: boolean;
     // mapped to an enum
     public StockStatus: number;
     //constructor will take the raw data from the database and convert it into the object.
@@ -39,6 +41,7 @@ class Item {
         this.Category = Category;
         this.Stock = Stock;
         this.isAdvert = AdvertisementPoints != 0
+        this.userLiked = false;
         // convert stock status into the enum for the application
         // it is intended for isDiscounted to take priority over the rest as it contributes to the most score in the algorithm
         if (isDiscounted) {
@@ -86,46 +89,67 @@ class Seller {
 }
 
 export const getHottestItems = functions.region("asia-east2").https.onRequest(async (data, response) => {
-    try{
-    const arrayItem = new Array<Item>();
-    let itemSeller: Seller;
-    // we do not have a system for user preference, so for now just list all items.
-    const sellerSnapshot = await db.collection("users").get();
-    // this is the list of promises/awaitables for all items
-    const promises = new Array<Promise<FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData>>>();
-    sellerSnapshot.forEach((sellerDoc) => {
-        const sellerData = sellerDoc.data();
-        // check for non null / empty strings
-        if (sellerData.Name as string && sellerData.UID as string) {
-            // this is all the seller information we need
-            itemSeller = new Seller(sellerData.Name, sellerData.UID, ""); // placeholder profile picture
-            const refItem = sellerDoc.ref.collection("Items");
-            // push all the promises to a list so we can run all our queries in parallel
-            promises.push(refItem.get());
-        }
-    });
-    // wait for all promises to finish and get a list of snapshots
-    const itemSnapshots = await Promise.all(promises);
-    itemSnapshots.forEach((ItemSnapshot) => {
-        ItemSnapshot.forEach((ItemDoc) => {
-            // get the data
-            const itemData = ItemDoc.data();
-            // if title is not null, the rest of the fields are unlikely to be.
-            if (itemData.Title as string) {
-                // the rest of the logic to convert from database to model is in the constructor
-                arrayItem.push(new Item(ItemDoc.id, itemData.Title, itemSeller, itemData.Likes, itemData.ListedTime, itemData.Rating, itemData.Description, itemData.TransactionInformation, itemData.ProcurementInformation, itemData.Category, itemData.Stock, itemData.Image1, itemData.Image2, itemData.Image3, itemData.Image4, itemData.AdvertisementPoints, itemData.isDiscounted, itemData.isRestocked));
+    try {
+        var arrayItem = new Array<Item>();
+        let itemSeller: Seller;
+        // we do not have a system for user preference, so for now just list all items.
+        const sellerSnapshot = await db.collection("users").get();
+        // this is the list of promises/awaitables for all items
+        const promises = new Array<Promise<FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData>>>();
+        sellerSnapshot.forEach((sellerDoc) => {
+            const sellerData = sellerDoc.data();
+            // check for non null / empty strings
+            if (sellerData.Name as string && sellerData.UID as string) {
+                // this is all the seller information we need
+                itemSeller = new Seller(sellerData.Name, sellerData.UID, ""); // placeholder profile picture
+                const refItem = sellerDoc.ref.collection("Items");
+                // push all the promises to a list so we can run all our queries in parallel
+                promises.push(refItem.get());
             }
         });
-    });
-    // sort by performance level
-    arrayItem.sort(x => x.Performance);
-    response.send(arrayItem);
-}catch (err){
-    // log the error
-    console.log(err);
-    response.status(500).send(err);
-}
+        // wait for all promises to finish and get a list of snapshots
+        const itemSnapshots = await Promise.all(promises);
+        itemSnapshots.forEach((ItemSnapshot) => {
+            ItemSnapshot.forEach((ItemDoc) => {
+                // get the data
+                const itemData = ItemDoc.data();
+                // if title is not null, the rest of the fields are unlikely to be.
+                if (itemData.Title as string) {
+                    // the rest of the logic to convert from database to model is in the constructor
+                    arrayItem.push(new Item(ItemDoc.id, itemData.Title, itemSeller, itemData.Likes, itemData.ListedTime, itemData.Rating, itemData.Description, itemData.TransactionInformation, itemData.ProcurementInformation, itemData.Category, itemData.Stock, itemData.Image1, itemData.Image2, itemData.Image3, itemData.Image4, itemData.AdvertisementPoints, itemData.isDiscounted, itemData.isRestocked));
+                }
+            });
+        });
+        // sort by performance level
+        arrayItem.sort(x => x.Performance);
+        if (data.body.userID) {
+            arrayItem = await markLikedItems(data.body.userID, arrayItem);
+        }
+        //send the responseafter all the final modifications
+        response.send(arrayItem);
+    } catch (err) {
+        // log the error
+        console.log(err);
+        response.status(500).send(err);
+    }
 });
+const markLikedItems = async function (userID: string, Items: Array<Item>) {
+    try {
+        const userDoc = await db.collection('users').doc(userID).get();
+        const likedItems = await userDoc.ref.collection('LikedItems').get();
+        likedItems.forEach((likedDoc) => {
+            const likedItemData = likedDoc.data();
+            console.log(likedItemData.ItemID);
+            // lambda that marks every item with the same listing id as a liked item as liked.
+            // the ternary is to avoid marking items already true as false again.
+
+            Items.map(x => x.userLiked = x.userLiked ? true : x.ListingID == likedItemData.ItemID);
+        });
+    } catch (err) {
+        console.log(err);
+    }
+    return Items;
+}
 
 export const helloWorld = functions.region("asia-east2").https.onRequest((request, response) => {
     response.send("Hello from Firebase!");
