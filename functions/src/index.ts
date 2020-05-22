@@ -2,17 +2,19 @@ import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
 admin.initializeApp();
 const db = admin.firestore();
+const mAuth = admin.auth();
 class Item {
     // this is the items class we will pass to the app.
     public Title: string;
-    public seller: Seller;
+    public sellerName: string;
+    public sellerUID: string;
+    public sellerImageURL: string;
     public Likes: number;
-    public ListedTime: Date;
+    public ListedTime: String;
     public Rating: number;
     public Description: string;
-    public TranscationInformation: string;
+    public TransactionInformation: string;
     public ProcurementInformation: string;
-    public PaymentType: string;
     public Category: string;
     public Stock: number;
     public Images: string[];
@@ -20,18 +22,21 @@ class Item {
     public isAdvert: boolean;
     // mapped to an enum
     public StockStatus: number;
-    constructor(Title: string, seller: Seller, Likes: number, ListedTime: Date, Rating: number, Description: string, TransactionInformation: string, ProcurementInformation: string, PaymentType: string, Category: string, Stock: number, Image1: string, Image2: string, Image3: string, Image4: string, AdvertisementPoints: number, isDiscounted: boolean, isRestocked: boolean) {
+    //constructor will take the raw data from the database and convert it into the object.
+    constructor(Title: string, seller: Seller, Likes: number, ListedTime: FirebaseFirestore.Timestamp, Rating: number, Description: string, TransactionInformation: string, ProcurementInformation: string, Category: string, Stock: number, Image1: string, Image2: string, Image3: string, Image4: string, AdvertisementPoints: number, isDiscounted: boolean, isRestocked: boolean) {
         this.Title = Title;
-        this.seller = seller;
+        this.sellerName = seller.Name;
+        this.sellerUID = seller.UID;
+        this.sellerImageURL = seller.pictureURL;
         this.Likes = Likes;
-        this.ListedTime = ListedTime;
+        this.ListedTime = ListedTime.toDate().toISOString();
         this.Rating = Rating;
         this.Description = Description;
-        this.TranscationInformation = TransactionInformation;
+        this.TransactionInformation = TransactionInformation;
         this.ProcurementInformation = ProcurementInformation;
-        this.PaymentType = PaymentType;
         this.Category = Category;
         this.Stock = Stock;
+        this.isAdvert = AdvertisementPoints != 0
         // convert stock status into the enum for the application
         // it is intended for isDiscounted to take priority over the rest as it contributes to the most score in the algorithm
         if (isDiscounted) {
@@ -60,7 +65,7 @@ class Item {
         }
         this.Images = images;
         // performance on the list is calculated by number of likes over time multiplied by advertisement points
-        this.Performance = (Likes / ((new Date()).valueOf() - ListedTime.valueOf()) * Math.max(AdvertisementPoints, 1));
+        this.Performance = (Likes / ((new Date()).valueOf() - ListedTime.toDate().valueOf()) * Math.max(AdvertisementPoints, 1));
     }
 
 }
@@ -78,7 +83,7 @@ class Seller {
 
 }
 
-export const getUserItems = functions.https.onRequest(async (data, response) => {
+export const getUserItems = functions.region("asia-east2").https.onRequest(async (data, response) => {
     try{
     const arrayItem = new Array<Item>();
     let itemSeller: Seller;
@@ -107,7 +112,7 @@ export const getUserItems = functions.https.onRequest(async (data, response) => 
             // if title is not null, the rest of the fields are unlikely to be.
             if (itemData.Title as string) {
                 // the rest of the logic to convert from database to model is in the constructor
-                arrayItem.push(new Item(itemData.Title, itemSeller, itemData.Likes, itemData.ListedTime, itemData.Rating, itemData.Description, itemData.TransactionInformation, itemData.ProcurementInformation, itemData.PaymentType, itemData.Category, itemData.Stock, itemData.Image1, itemData.Image2, itemData.Image3, itemData.Image4, itemData.AdvertisementPoints, itemData.isDiscounted, itemData.isRestocked));
+                arrayItem.push(new Item(itemData.Title, itemSeller, itemData.Likes, itemData.ListedTime, itemData.Rating, itemData.Description, itemData.TransactionInformation, itemData.ProcurementInformation, itemData.Category, itemData.Stock, itemData.Image1, itemData.Image2, itemData.Image3, itemData.Image4, itemData.AdvertisementPoints, itemData.isDiscounted, itemData.isRestocked));
             }
         });
     });
@@ -120,6 +125,6 @@ export const getUserItems = functions.https.onRequest(async (data, response) => 
     response.status(500).send(err);
 }
 });
-export const helloWorld = functions.https.onRequest((request, response) => {
+export const helloWorld = functions.region("asia-east2").https.onRequest((request, response) => {
     response.send("Hello from Firebase!");
 });
