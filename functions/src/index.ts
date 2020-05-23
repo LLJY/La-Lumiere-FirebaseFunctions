@@ -97,6 +97,21 @@ let itemsObserveQuery = db.collectionGroup("Items").onSnapshot(async (snapshot)=
     await getAllItems();
 });
 /**
+ * Get seller items by seller's UID
+ */
+export const getSellerItems = functions.region("asia-east2").https.onRequest(async (data, response) => {
+    try{
+        var allItems = await getAllItems();
+        // let try catch handle the error if userID is null
+        allItems = allItems.filter(x=>x.sellerUID == data.body.userID);
+        // send all the items
+        response.send(allItems);
+    }catch(err){
+        console.log(err);
+        response.status(500).send(err);
+    }
+});
+/**
  * Filters the items by the hottest/best performance level
  */
 export const getHottestItems = functions.region("asia-east2").https.onRequest(async (data, response) => {
