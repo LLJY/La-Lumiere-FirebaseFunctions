@@ -1,6 +1,6 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
-import { user } from "firebase-functions/lib/providers/auth";
+
 admin.initializeApp();
 const db = admin.firestore();
 const mAuth = admin.auth();
@@ -194,32 +194,16 @@ const markLikedItems = async function (userID: string, Items: Array<Item>) {
 
 const getAllItems = async function(): Promise<Array<Item>>{
     try {
-        var arrayItem = new Array<Item>();
-        let itemSeller: Seller;
-        const sellerSnapshot = await db.collection("users").get();
+        var returnArray = new Array<Item>();
+        //only get sellers
+        const sellerSnapshot = await db.collection("users").where("Type", "==", "Seller").get();
         // this is the list of promises/awaitables for all items
-        const promises = new Array<Promise<FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData>>>();
-        const arrayDoc = new Array<FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>>();
-        //convert all the seller snapshots into a list we can process
-        sellerSnapshot.forEach(doc=>{
-            arrayDoc.push(doc);
-        });
-        for (let index = 0; index < arrayDoc.length; index++) {
-            const sellerDoc = arrayDoc[index];
-            const sellerData = sellerDoc.data();
-            // check for non null / empty strings
-            if (sellerData.Name as string && sellerData.UID as string) {
-                const sellerAuth = await mAuth.getUser(sellerData.UID);
-                // this is all the seller information we need
-                itemSeller = new Seller(sellerAuth.displayName, sellerData.UID, sellerAuth.photoURL); // placeholder profile picture
-                const refItem = sellerDoc.ref.collection("Items");
-                // push all the promises to a list so we can run all our queries in parallel
-                promises.push(refItem.get());
-            }
-        }
-        const itemSnapshots = await Promise.all(promises);
-        itemSnapshots.forEach((ItemSnapshot) => {
-            ItemSnapshot.forEach((ItemDoc) => {
+        // we will run the seller function in parallel to speed things up
+        const promisesProcessSeller = new Array<Promise<Array<Item>>>();
+        const processRefItem = async function(itemSeller: Seller, refItem: FirebaseFirestore.CollectionReference<FirebaseFirestore.DocumentData>) : Promise<Array<Item>>{
+            var arrayItem = new Array<Item>();
+            const itemSnapshot = await refItem.get();
+            itemSnapshot.forEach((ItemDoc) => {
                 // get the data
                 const itemData = ItemDoc.data();
                 // if title is not null, the rest of the fields are unlikely to be.
@@ -228,9 +212,30 @@ const getAllItems = async function(): Promise<Array<Item>>{
                     arrayItem.push(new Item(ItemDoc.id, itemData.Title, itemSeller, itemData.Likes, itemData.ListedTime, itemData.Rating, itemData.Description, itemData.TransactionInformation, itemData.ProcurementInformation, itemData.Category, itemData.Stock, itemData.Image1, itemData.Image2, itemData.Image3, itemData.Image4, itemData.AdvertisementPoints, itemData.isDiscounted, itemData.isRestocked));
                 }
             });
+            return arrayItem;
+        }
+        const processSeller = async function (sellerDoc : FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>) : Promise<Array<Item>> {
+            const sellerData = sellerDoc.data();
+            // check for non null / empty strings
+            if (sellerData.Name as string && sellerData.UID as string) {
+                const sellerAuth = await mAuth.getUser(sellerData.UID);
+                // this is all the seller information we need
+                let itemSeller = new Seller(sellerAuth.displayName, sellerData.UID, sellerAuth.photoURL); // placeholder profile picture
+                const refItem = sellerDoc.ref.collection("Items");
+                // push all the promises to a list so we can run all our queries in parallel
+                return (processRefItem(itemSeller, refItem));
+            }
+            return null;
+        }
+        // process every seller
+        sellerSnapshot.forEach(doc=>{
+            promisesProcessSeller.push(processSeller(doc));
         });
-        // sort by performance level
-        return arrayItem;
+        const arrayOfItems = await Promise.all(promisesProcessSeller);
+        arrayOfItems.forEach((itemArray)=>{
+            returnArray = returnArray.concat(itemArray);
+        });
+        return returnArray;
     } catch (err) {
         // log the error
         console.log(err);
