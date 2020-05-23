@@ -1,5 +1,6 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
+import { user } from "firebase-functions/lib/providers/auth";
 admin.initializeApp();
 const db = admin.firestore();
 const mAuth = admin.auth();
@@ -130,7 +131,7 @@ export const getHottestItems = functions.region("asia-east2").https.onRequest(as
         if (data.body.userID) {
             arrayItem = await markLikedItems(data.body.userID, arrayItem);
         }
-        //send the responseafter all the final modifications
+        // send the response after all the final modifications
         response.send(arrayItem);
     } catch (err) {
         // log the error
@@ -157,8 +158,164 @@ export const getCategories = functions.region("asia-east2").https.onRequest(asyn
         response.status(500).send(err);
     }
 });
+class itemPerSeller{
+    public itemData: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>
+    public sellerData: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>
+    constructor(itemData: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>, sellerData: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>){
+        this.itemData = itemData;
+        this.sellerData = sellerData;
+    }
+}
+export const getItemByFollowed = functions.region("asia-east2").https.onRequest(async (data, response) => {
+    try {
+        var arrayItem = new Array<Item>();
+        let itemSeller: Seller;
+        const sellerSnapshot = await db.collection("users").get();
+        // this is the list of promises/awaitables for all items
+        const promises = new Array<Promise<FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData>>>();
+        const arrayDoc = new Array<FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>>();
+        //convert all the seller snapshots into a list we can process
+        sellerSnapshot.forEach(doc=>{
+            arrayDoc.push(doc);
+        });
+        for (let index = 0; index < arrayDoc.length; index++) {
+            const sellerDoc = arrayDoc[index];
+            const sellerData = sellerDoc.data();
+            // check for non null / empty strings
+            if (sellerData.Name as string && sellerData.UID as string) {
+                const sellerAuth = await mAuth.getUser(sellerData.UID);
+                // this is all the seller information we need
+                itemSeller = new Seller(sellerAuth.displayName, sellerData.UID, sellerAuth.photoURL); // placeholder profile picture
+                const refItem = sellerDoc.ref.collection("Items");
+                // push all the promises to a list so we can run all our queries in parallel
+                promises.push(refItem.get());
+            }
+        }
+        const itemSnapshots = await Promise.all(promises);
+        itemSnapshots.forEach((ItemSnapshot) => {
+            ItemSnapshot.forEach((ItemDoc) => {
+                // get the data
+                const itemData = ItemDoc.data();
+                // if title is not null, the rest of the fields are unlikely to be.
+                if (itemData.Title as string) {
+                    // the rest of the logic to convert from database to model is in the constructor
+                    arrayItem.push(new Item(ItemDoc.id, itemData.Title, itemSeller, itemData.Likes, itemData.ListedTime, itemData.Rating, itemData.Description, itemData.TransactionInformation, itemData.ProcurementInformation, itemData.Category, itemData.Stock, itemData.Image1, itemData.Image2, itemData.Image3, itemData.Image4, itemData.AdvertisementPoints, itemData.isDiscounted, itemData.isRestocked));
+                }
+            });
+        });
+        // sort by performance level
+        arrayItem = arrayItem.sort(x => x.Performance);
+        if (data.body.userID) {
+            arrayItem = await markLikedItems(data.body.userID, arrayItem);
+        }
+        // send the response after all the final modifications
+        const promises1 = new Array<Promise<FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData>>>();
+        const user = await db.collection("users").where("UID", "==", data.body.userID).get();
+        user.forEach((user)=>{
+            promises1.push(user.ref.collection("Following").get());
+        });
+        const followerSnapshots = await Promise.all(promises1);
+        const returnList = new Array<Item>();
+        followerSnapshots.forEach(followerSnapshot=>{
+            followerSnapshot.forEach(followerDoc=>{
+                const followerData = followerDoc.data();
+                //avoid just filtering everything and filter it to a sublist that we will concat to the mainlist
+                returnList.push.apply(returnList, arrayItem.filter(x=> x.sellerUID == followerData.UserID));
+            })
+        })
+        response.send(returnList);
+    } catch (err) {
+        // log the error
+        console.log(err);
+        response.status(500).send(err);
+    }
+});
+export const getItemBySuggestion = functions.region("asia-east2").https.onRequest(async (data, response) => {
+    try{
 
-const markLikedItems = async function (userID: string, Items: Array<Item>) {
+    }catch(err){
+        console.log(err);
+        response.status(500).send(err);
+    }
+});
+//so this was the previous function i tried, feel free to take it apart for your learning (yeah it doesn't work)
+// export const getItemByFollowed = functions.region("asia-east2").https.onRequest(async (data, response) => {
+//     try{
+//         var arrayItem = new Array<Item>();
+//         const userSnapshot = await db.collection("users").where("UID", "==", data.body.userID).get();
+//         //only one so meh
+//         const followingIDs = new Array<string>();
+//         const promises = new Array<Promise<FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData>>>();
+//         userSnapshot.forEach((userDoc)=>{
+//             console.log("test");
+//             const refSubs = userDoc.ref.collection("Following");
+//             promises.push(refSubs.get());
+//         });
+//         //wait for all the tasks to be completed
+//         const awaitAllUsers = await Promise.all(promises);
+//         awaitAllUsers.forEach((followingQuery)=>{
+//             followingQuery.forEach((followingDoc)=>{
+//                 //add all user ids to the list
+//                 followingIDs.push(followingDoc.data().UserID);
+//             });
+//         });
+//         const promises2 = new Array<Promise<FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData>[]>>();
+//         for (let index = 0; index < followingIDs.length; index++) {
+//             const followingID = followingIDs[index];
+//             const asyncFunc = async function(followingID){
+//                 // get the user
+//                 const itemQuery = await db.collection("users").where("UID", "==", followingID).get();
+//                 const promises3 = new Array<Promise<FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData>>>();
+//                 itemQuery.forEach((itemDoc)=>{
+//                     // get ALL the items from the user
+//                     promises3.push(itemDoc.ref.collection("Items").get())
+//                 });
+//                 //wait for all of the item requests to come back and then return it
+//                 return await Promise.all(promises3);
+//             }
+//             promises2.push(asyncFunc(followingID));
+//         }
+//         //get all the items once they are ready
+//         const items = await Promise.all(promises2);
+//         const promise4 = new Array<Promise<Item>>();
+//         items.forEach((itemQueryArray)=>{
+//             itemQueryArray.forEach((itemQuery)=>{
+//                 itemQuery.forEach((ItemDoc)=>{
+//                     var ItemInner : Item;
+//                     const asyncFunc = async function(ItemDoc: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>){
+//                     const itemData = ItemDoc.data();
+//                     const sellerQuery = await ItemDoc.ref.parent.get();
+//                     var sellerData : FirebaseFirestore.DocumentData
+//                     sellerQuery.forEach((itemData)=>{
+//                         //assign whatever to it, there should only be one
+//                             sellerData = itemData.data();
+//                         });
+//                     if (sellerData.Name as string && sellerData.UID as string) {
+//                         const sellerAuth = await mAuth.getUser(sellerData.UID);
+//                         // this is all the seller information we need
+//                         const itemSeller = new Seller(sellerAuth.displayName, sellerData.UID, sellerAuth.photoURL); // placeholder profile picture
+//                         ItemInner = new Item(ItemDoc.id, itemData.Title, itemSeller, itemData.Likes, itemData.ListedTime, itemData.Rating, itemData.Description, itemData.TransactionInformation, itemData.ProcurementInformation, itemData.Category, itemData.Stock, itemData.Image1, itemData.Image2, itemData.Image3, itemData.Image4, itemData.AdvertisementPoints, itemData.isDiscounted, itemData.isRestocked);
+//                     }
+//                     return ItemInner;
+//                 }
+//                 promise4.push(asyncFunc(ItemDoc));
+//             });
+//         });
+//     });
+//     const arrayItems = await Promise.all(promise4);
+//     arrayItems.forEach((item)=>{
+//         arrayItem.push(item);
+//     });
+//     arrayItem = await markLikedItems(data.body.userID, arrayItem);
+//     response.send(arrayItem);
+//     }catch(err){
+//         console.log(err);
+//         response.status(500).send(err);
+//     }
+// });
+
+
+    const markLikedItems = async function (userID: string, Items: Array<Item>) {
     try {
         // there is only one user so limit one
         const userDocs = await db.collection('users').where("UID", "==", userID).limit(1).get();
