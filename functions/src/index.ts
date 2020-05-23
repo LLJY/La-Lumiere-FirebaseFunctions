@@ -88,6 +88,14 @@ class Seller {
     }
 
 }
+// cache all the items in the database for faster user access.
+let ItemsCache : Array<Item>;
+let updateCache = true;
+// observe for changes in items, then update cache when necessary
+let itemsObserveQuery = db.collectionGroup("Items").onSnapshot(async (snapshot)=>{
+    updateCache = true;
+    await getAllItems();
+});
 /**
  * Filters the items by the hottest/best performance level
  */
@@ -210,50 +218,56 @@ const markLikedItems = async function (userID: string, Items: Array<Item>) {
 /**
  * gets all the items from firebase/firestore
  */
-const getAllItems = async function(): Promise<Array<Item>>{
+const getAllItems = async function (): Promise<Array<Item>> {
     try {
-        var returnArray = new Array<Item>();
-        //only get sellers
-        const sellerSnapshot = await db.collection("users").where("Type", "==", "Seller").get();
-        // this is the list of promises/awaitables for all items
-        // we will run the seller function in parallel to speed things up
-        const promisesProcessSeller = new Array<Promise<Array<Item>>>();
-        const processRefItem = async function(itemSeller: Seller, refItem: FirebaseFirestore.CollectionReference<FirebaseFirestore.DocumentData>) : Promise<Array<Item>>{
-            var arrayItem = new Array<Item>();
-            const itemSnapshot = await refItem.get();
-            itemSnapshot.forEach((ItemDoc) => {
-                // get the data
-                const itemData = ItemDoc.data();
-                // if title is not null, the rest of the fields are unlikely to be.
-                if (itemData.Title as string) {
-                    // the rest of the logic to convert from database to model is in the constructor
-                    arrayItem.push(new Item(ItemDoc.id, itemData.Title, itemSeller, itemData.Likes, itemData.ListedTime, itemData.Rating, itemData.Description, itemData.TransactionInformation, itemData.ProcurementInformation, itemData.Category, itemData.Stock, itemData.Image1, itemData.Image2, itemData.Image3, itemData.Image4, itemData.AdvertisementPoints, itemData.isDiscounted, itemData.isRestocked));
-                }
-            });
-            return arrayItem;
-        }
-        const processSeller = async function (sellerDoc : FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>) : Promise<Array<Item>> {
-            const sellerData = sellerDoc.data();
-            // check for non null / empty strings
-            if (sellerData.Name as string && sellerData.UID as string) {
-                const sellerAuth = await mAuth.getUser(sellerData.UID);
-                // this is all the seller information we need
-                let itemSeller = new Seller(sellerAuth.displayName, sellerData.UID, sellerAuth.photoURL); // placeholder profile picture
-                const refItem = sellerDoc.ref.collection("Items");
-                // push all the promises to a list so we can run all our queries in parallel
-                return (processRefItem(itemSeller, refItem));
+        //if the cache is due for an update, get it.
+        if (updateCache) {
+            var returnArray = new Array<Item>();
+            //only get sellers
+            const sellerSnapshot = await db.collection("users").where("Type", "==", "Seller").get();
+            // this is the list of promises/awaitables for all items
+            // we will run the seller function in parallel to speed things up
+            const promisesProcessSeller = new Array<Promise<Array<Item>>>();
+            const processRefItem = async function (itemSeller: Seller, refItem: FirebaseFirestore.CollectionReference<FirebaseFirestore.DocumentData>): Promise<Array<Item>> {
+                var arrayItem = new Array<Item>();
+                const itemSnapshot = await refItem.get();
+                itemSnapshot.forEach((ItemDoc) => {
+                    // get the data
+                    const itemData = ItemDoc.data();
+                    // if title is not null, the rest of the fields are unlikely to be.
+                    if (itemData.Title as string) {
+                        // the rest of the logic to convert from database to model is in the constructor
+                        arrayItem.push(new Item(ItemDoc.id, itemData.Title, itemSeller, itemData.Likes, itemData.ListedTime, itemData.Rating, itemData.Description, itemData.TransactionInformation, itemData.ProcurementInformation, itemData.Category, itemData.Stock, itemData.Image1, itemData.Image2, itemData.Image3, itemData.Image4, itemData.AdvertisementPoints, itemData.isDiscounted, itemData.isRestocked));
+                    }
+                });
+                return arrayItem;
             }
-            return null;
-        }
-        // process every seller
-        sellerSnapshot.forEach(doc=>{
-            promisesProcessSeller.push(processSeller(doc));
-        });
-        const arrayOfItems = await Promise.all(promisesProcessSeller);
-        arrayOfItems.forEach((itemArray)=>{
-            returnArray = returnArray.concat(itemArray);
-        });
-        return returnArray;
+            const processSeller = async function (sellerDoc: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>): Promise<Array<Item>> {
+                const sellerData = sellerDoc.data();
+                // check for non null / empty strings
+                if (sellerData.Name as string && sellerData.UID as string) {
+                    const sellerAuth = await mAuth.getUser(sellerData.UID);
+                    // this is all the seller information we need
+                    let itemSeller = new Seller(sellerAuth.displayName, sellerData.UID, sellerAuth.photoURL); // placeholder profile picture
+                    const refItem = sellerDoc.ref.collection("Items");
+                    // push all the promises to a list so we can run all our queries in parallel
+                    return (processRefItem(itemSeller, refItem));
+                }
+                return null;
+            }
+            // process every seller
+            sellerSnapshot.forEach(doc => {
+                promisesProcessSeller.push(processSeller(doc));
+            });
+            const arrayOfItems = await Promise.all(promisesProcessSeller);
+            arrayOfItems.forEach((itemArray) => {
+                returnArray = returnArray.concat(itemArray);
+            });
+            // cache has been updated.
+            updateCache = false;
+            ItemsCache = returnArray;
+        } 
+        return ItemsCache;
     } catch (err) {
         // log the error
         console.log(err);
