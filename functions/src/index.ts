@@ -127,14 +127,7 @@ export const getCategories = functions.region("asia-east2").https.onRequest(asyn
         response.status(500).send(err);
     }
 });
-class itemPerSeller{
-    public itemData: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>
-    public sellerData: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>
-    constructor(itemData: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>, sellerData: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>){
-        this.itemData = itemData;
-        this.sellerData = sellerData;
-    }
-}
+
 export const getItemByFollowed = functions.region("asia-east2").https.onRequest(async (data, response) => {
     try {
         // get all items so we can filter it later
