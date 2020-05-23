@@ -159,9 +159,25 @@ export const getItemByFollowed = functions.region("asia-east2").https.onRequest(
         response.status(500).send(err);
     }
 });
+
 export const getItemBySuggestion = functions.region("asia-east2").https.onRequest(async (data, response) => {
     try{
-
+        // get all items and filter it afterwards
+        var allItems = await getAllItems();
+        const userSnapshot = await db.collection('users').where("UID", "==", data.body.userID).limit(1).get();
+        let userDoc: FirebaseFirestore.QueryDocumentSnapshot;
+        // run a foreach, there is only 1 but this is the only way to get the item...
+        userSnapshot.forEach((doc) => {
+            userDoc = doc;
+        });
+        // get the user's subscrobed category
+        const subscribedCategoriesSnapshot = await userDoc.ref.collection("SubscribedCategories").get();
+        // if there are no results, this will not run, so just return everything for now. we can make this more sophisticated in the future.
+        subscribedCategoriesSnapshot.forEach((subDoc)=>{
+            const categoryData = subDoc.data();
+            allItems = allItems.filter(x=> x.Category == categoryData.CategoryName);
+        });
+        response.send(allItems);
     }catch(err){
         console.log(err);
         response.status(500).send(err);
@@ -191,7 +207,9 @@ const markLikedItems = async function (userID: string, Items: Array<Item>) {
     }
     return Items;
 }
-
+/**
+ * gets all the items from firebase/firestore
+ */
 const getAllItems = async function(): Promise<Array<Item>>{
     try {
         var returnArray = new Array<Item>();
