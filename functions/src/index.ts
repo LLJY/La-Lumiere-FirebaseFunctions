@@ -94,14 +94,25 @@ let CategoriesCache : Array<string>;
 let updateItemsCache = true;
 let updateCategoriesCache = true;
 // observe for changes in items, then update cache when necessary
-let itemsObserveQuery = db.collectionGroup("Items").onSnapshot(async (snapshot)=>{
-    updateItemsCache = true;
-    await getAllItems();
-});
-let categoriesObserveQuery = db.collection("Categories").onSnapshot(async (snapshot)=>{
+let itemsObserveQuery = function(){ 
+    db.collectionGroup("Items").onSnapshot((snapshot)=>{
+        console.log("item updated")
+        updateItemsCache = true;
+        // do not await as onSnapshot is not promise aware
+        getAllItems(true);
+    }, err=>{
+        console.log(err);
+    });
+}
+let categoriesObserveQuery = function(){
+    db.collection("Categories").onSnapshot((snapshot)=>{
+    console.log("cat updated")
     updateCategoriesCache = true;
-    await getAllCategories();
-});
+    // do not await as onSnapshot is not promise aware
+    getAllCategories(true);
+}, err=>{
+    console.log(err)});
+}
 /**
  * Get seller items by seller's UID
  */
@@ -154,7 +165,7 @@ export const getCategories = functions.region("asia-east2").https.onRequest(asyn
         response.status(500).send(err);
     }
 });
-const getAllCategories = async function() : Promise<Array<string>>{
+const getAllCategories = async function(fromObserver: Boolean = false) : Promise<Array<string>>{
     try {
         if(updateCategoriesCache){
         const categoriesSnapshot = await db.collection("Categories").get();
@@ -168,8 +179,11 @@ const getAllCategories = async function() : Promise<Array<string>>{
         CategoriesCache = categories;
         // do not update the next time as it has already been updated.
         updateCategoriesCache = false;
-        // run the observe function so we update categories if there is an update.
-        categoriesObserveQuery();
+        // avoid calling another observer if already from one
+        if(!fromObserver){
+            // run the observe function so we update categories if there is an update.
+            categoriesObserveQuery();
+        }
     }
     return CategoriesCache;
     } catch (err) {
@@ -276,7 +290,7 @@ const markLikedItems = async function (userID: string, Items: Array<Item>) {
 /**
  * gets all the items from firebase/firestore
  */
-const getAllItems = async function (): Promise<Array<Item>> {
+const getAllItems = async function (fromObserver : Boolean = false): Promise<Array<Item>> {
     try {
         //if the cache is due for an update, get it.
         if (updateItemsCache) {
@@ -325,7 +339,10 @@ const getAllItems = async function (): Promise<Array<Item>> {
             // cache has been updated.
             updateItemsCache = false;
             ItemsCache = returnArray;
-            itemsObserveQuery();
+            // avoid creating multiple observers if already observing.
+            if(!fromObserver){
+                itemsObserveQuery();
+            }
         } 
         return ItemsCache;
     } catch (err) {
