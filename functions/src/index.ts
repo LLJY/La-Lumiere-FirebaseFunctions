@@ -104,8 +104,14 @@ export const getSellerItems = functions.region("asia-east2").https.onRequest(asy
         var allItems = await getAllItems();
         // let try catch handle the error if userID is null
         allItems = allItems.filter(x=>x.sellerUID == data.body.userID);
+         //mark liked items
+         if (data.body.userID) {
+            allItems = await markLikedItems(data.body.userID, allItems);
+        }
+        
         // send all the items
         response.send(allItems);
+        
     }catch(err){
         console.log(err);
         response.status(500).send(err);
@@ -117,8 +123,6 @@ export const getSellerItems = functions.region("asia-east2").https.onRequest(asy
 export const getHottestItems = functions.region("asia-east2").https.onRequest(async (data, response) => {
     try {
        let arrayItem = await getAllItems();
-        // sort by performance level
-        arrayItem = arrayItem.sort(x => x.Performance);
         //if the userID exists in the request body, add their liked items
         if (data.body.userID) {
             arrayItem = await markLikedItems(data.body.userID, arrayItem);
@@ -206,6 +210,10 @@ export const getItemBySuggestion = functions.region("asia-east2").https.onReques
             const categoryData = subDoc.data();
             allItems = allItems.filter(x=> x.Category == categoryData.CategoryName);
         });
+        //mark liked items
+        if (data.body.userID) {
+            allItems = await markLikedItems(data.body.userID, allItems);
+        }
         response.send(allItems);
     }catch(err){
         console.log(err);
@@ -290,9 +298,11 @@ const getAllItems = async function (): Promise<Array<Item>> {
             arrayOfItems.forEach((itemArray) => {
                 returnArray = returnArray.concat(itemArray);
             });
+            returnArray = returnArray.sort(x => x.Performance);
             // cache has been updated.
             updateCache = false;
             ItemsCache = returnArray;
+            itemsObserveQuery();
         } 
         return ItemsCache;
     } catch (err) {
