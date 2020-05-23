@@ -151,6 +151,9 @@ export const getCategories = functions.region("asia-east2").https.onRequest(asyn
     }
 });
 
+/**
+ * Get Items from people the user follows
+ */
 export const getItemByFollowed = functions.region("asia-east2").https.onRequest(async (data, response) => {
     try {
         // get all items so we can filter it later
@@ -183,6 +186,9 @@ export const getItemByFollowed = functions.region("asia-east2").https.onRequest(
     }
 });
 
+/**
+ * Get suggested items by the user's ID, right now we are only filtering it by subscribed categories
+ */
 export const getItemBySuggestion = functions.region("asia-east2").https.onRequest(async (data, response) => {
     try{
         // get all items and filter it afterwards
@@ -207,6 +213,11 @@ export const getItemBySuggestion = functions.region("asia-east2").https.onReques
     }
 });
 
+/**
+ * Marks items as liked by the userID
+ * @param userID 
+ * @param Items 
+ */
 const markLikedItems = async function (userID: string, Items: Array<Item>) {
     try {
         // there is only one user so limit one
@@ -230,6 +241,7 @@ const markLikedItems = async function (userID: string, Items: Array<Item>) {
     }
     return Items;
 }
+
 /**
  * gets all the items from firebase/firestore
  */
