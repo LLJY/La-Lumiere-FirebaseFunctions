@@ -90,11 +90,17 @@ class Seller {
 }
 // cache all the items in the database for faster user access.
 let ItemsCache : Array<Item>;
-let updateCache = true;
+let CategoriesCache : Array<string>;
+let updateItemsCache = true;
+let updateCategoriesCache = true;
 // observe for changes in items, then update cache when necessary
 let itemsObserveQuery = db.collectionGroup("Items").onSnapshot(async (snapshot)=>{
-    updateCache = true;
+    updateItemsCache = true;
     await getAllItems();
+});
+let categoriesObserveQuery = db.collection("Categories").onSnapshot(async (snapshot)=>{
+    updateCategoriesCache = true;
+    await getAllCategories();
 });
 /**
  * Get seller items by seller's UID
@@ -141,6 +147,16 @@ export const getHottestItems = functions.region("asia-east2").https.onRequest(as
  */
 export const getCategories = functions.region("asia-east2").https.onRequest(async (data, response) => {
     try {
+        // just send the getAllCategories function, which handles caching too.
+        response.send(await getAllCategories());
+    } catch (err) {
+        console.log(err);
+        response.status(500).send(err);
+    }
+});
+const getAllCategories = async function() : Promise<Array<string>>{
+    try {
+        if(updateCategoriesCache){
         const categoriesSnapshot = await db.collection("Categories").get();
         const categories = new Array<string>();
         categoriesSnapshot.forEach((categoryDoc) => {
@@ -148,12 +164,19 @@ export const getCategories = functions.region("asia-east2").https.onRequest(asyn
             console.log(categoryDoc.data().Name);
             categories.push(categoryDoc.data().Name);
         });
-        response.send(categories);
+        // assign to the cache and return the cache when called
+        CategoriesCache = categories;
+        // do not update the next time as it has already been updated.
+        updateCategoriesCache = false;
+        // run the observe function so we update categories if there is an update.
+        categoriesObserveQuery();
+    }
+    return CategoriesCache;
     } catch (err) {
         console.log(err);
-        response.status(500).send(err);
+        return null;
     }
-});
+}
 
 /**
  * Get Items from people the user follows
@@ -256,7 +279,7 @@ const markLikedItems = async function (userID: string, Items: Array<Item>) {
 const getAllItems = async function (): Promise<Array<Item>> {
     try {
         //if the cache is due for an update, get it.
-        if (updateCache) {
+        if (updateItemsCache) {
             var returnArray = new Array<Item>();
             //only get sellers
             const sellerSnapshot = await db.collection("users").where("Type", "==", "Seller").get();
@@ -300,7 +323,7 @@ const getAllItems = async function (): Promise<Array<Item>> {
             });
             returnArray = returnArray.sort(x => x.Performance);
             // cache has been updated.
-            updateCache = false;
+            updateItemsCache = false;
             ItemsCache = returnArray;
             itemsObserveQuery();
         } 
