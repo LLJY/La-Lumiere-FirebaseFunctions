@@ -13,6 +13,7 @@ class Item {
     public sellerImageURL: string;
     public Likes: number;
     public ListedTime: String;
+    public Price: number;
     public Rating: number;
     public Description: string;
     public TransactionInformation: string;
@@ -27,7 +28,7 @@ class Item {
     // mapped to an enum
     public StockStatus: number;
     //constructor will take the raw data from the database and convert it into the object.
-    constructor(ListingID: string, Title: string, seller: Seller, Likes: number, ListedTime: FirebaseFirestore.Timestamp, Rating: number, Description: string, TransactionInformation: string, ProcurementInformation: string, Category: string, Stock: number, Image1: string, Image2: string, Image3: string, Image4: string, AdvertisementPoints: number, isDiscounted: boolean, isRestocked: boolean) {
+    constructor(ListingID: string, Title: string, seller: Seller, Likes: number, ListedTime: FirebaseFirestore.Timestamp, Price: number, Rating: number, Description: string, TransactionInformation: string, ProcurementInformation: string, Category: string, Stock: number, Image1: string, Image2: string, Image3: string, Image4: string, AdvertisementPoints: number, isDiscounted: boolean, isRestocked: boolean) {
         this.ListingID = ListingID;
         this.Title = Title;
         this.sellerName = seller.Name;
@@ -35,6 +36,7 @@ class Item {
         this.sellerImageURL = seller.pictureURL;
         this.Likes = Likes;
         this.ListedTime = ListedTime.toDate().toISOString();
+        this.Price = Price;
         this.Rating = Rating;
         this.Description = Description;
         this.TransactionInformation = TransactionInformation;
@@ -169,12 +171,13 @@ const getAllCategories = async function(fromObserver: Boolean = false) : Promise
     try {
         if(updateCategoriesCache){
         const categoriesSnapshot = await db.collection("Categories").get();
-        const categories = new Array<string>();
+        var categories = new Array<string>();
         categoriesSnapshot.forEach((categoryDoc) => {
             //add category name to the list
             console.log(categoryDoc.data().Name);
             categories.push(categoryDoc.data().Name);
         });
+        categories = categories.sort();
         // assign to the cache and return the cache when called
         CategoriesCache = categories;
         // do not update the next time as it has already been updated.
@@ -305,11 +308,12 @@ const getAllItems = async function (fromObserver : Boolean = false): Promise<Arr
                 const itemSnapshot = await refItem.get();
                 itemSnapshot.forEach((ItemDoc) => {
                     // get the data
-                    const itemData = ItemDoc.data();
+                    const itemData = ItemDoc.data();can make this more sophisticated in the future.
+                    subscribedCategoriesSnapshot.forEach((subDoc)=>{
                     // if title is not null, the rest of the fields are unlikely to be.
                     if (itemData.Title as string) {
                         // the rest of the logic to convert from database to model is in the constructor
-                        arrayItem.push(new Item(ItemDoc.id, itemData.Title, itemSeller, itemData.Likes, itemData.ListedTime, itemData.Rating, itemData.Description, itemData.TransactionInformation, itemData.ProcurementInformation, itemData.Category, itemData.Stock, itemData.Image1, itemData.Image2, itemData.Image3, itemData.Image4, itemData.AdvertisementPoints, itemData.isDiscounted, itemData.isRestocked));
+                        arrayItem.push(new Item(ItemDoc.id, itemData.Title, itemSeller, itemData.Likes, itemData.ListedTime, itemData.Price ,itemData.Rating, itemData.Description, itemData.TransactionInformation, itemData.ProcurementInformation, itemData.Category, itemData.Stock, itemData.Image1, itemData.Image2, itemData.Image3, itemData.Image4, itemData.AdvertisementPoints, itemData.isDiscounted, itemData.isRestocked));
                     }
                 });
                 return arrayItem;
