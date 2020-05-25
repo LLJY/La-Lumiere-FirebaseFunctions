@@ -308,8 +308,7 @@ const getAllItems = async function (fromObserver : Boolean = false): Promise<Arr
                 const itemSnapshot = await refItem.get();
                 itemSnapshot.forEach((ItemDoc) => {
                     // get the data
-                    const itemData = ItemDoc.data();can make this more sophisticated in the future.
-                    subscribedCategoriesSnapshot.forEach((subDoc)=>{
+                    const itemData = ItemDoc.data(); 
                     // if title is not null, the rest of the fields are unlikely to be.
                     if (itemData.Title as string) {
                         // the rest of the logic to convert from database to model is in the constructor
@@ -339,7 +338,7 @@ const getAllItems = async function (fromObserver : Boolean = false): Promise<Arr
             arrayOfItems.forEach((itemArray) => {
                 returnArray = returnArray.concat(itemArray);
             });
-            returnArray = returnArray.sort(x => x.Performance);
+            returnArray = returnArray.sort((a,b) => b.Performance - a.Performance);
             // cache has been updated.
             updateItemsCache = false;
             ItemsCache = returnArray;
@@ -355,7 +354,66 @@ const getAllItems = async function (fromObserver : Boolean = false): Promise<Arr
         // handle in try catch of other functions
         throw err;
     }
+}/**
+ * check for the user type / clearance level, 1 = buyer, 2 = seller, 3 = admin
+ * @param userID userID
+ */
+const checkUserType = async function(userID: string): Promise<number>{
+    const usersSnapshot = await db.collection("users").get();
+    var returnNum = -1;
+    usersSnapshot.forEach((userDoc)=>{
+        switch(userDoc.data().Type){
+            case "Buyer":
+                returnNum = 1;
+            case "Seller":
+                returnNum = 2;
+            case "Admin":
+                returnNum = 3;
+        }
+    });
+    // return NEGATIVE so invalid users cannot do anything.
+    return returnNum;
 }
+/**
+ * Function to add item, requires item object and userID
+ */
+export const addItem = functions.region("asia-east2").https.onRequest(async (request, response) => {
+    // do not let the user do this if the clearance level is not high enough
+    if(await checkUserType(request.body.sellerUID) >= 2){
+        // ensure there is only 1 user
+        const userSnapshot = await db.collection("users").where("UID", "==", request.body.userID).limit(1).get();
+        userSnapshot.forEach(userDoc => {
+            const userData = userDoc.data();
+            userDoc.ref.collection("Items").add({
+                AdvertisementPoints : 0,
+                Category: request.body.Category,
+                Description: request.body.Description,
+                Likes: 0,
+                ListedTime: new Date(),
+                NumberSold: 0,
+                Price: request.body.Price,
+                ProcurementInformation: request.body.ProcurementInformation,
+                Rating: 0,
+                SellerName: userData.Username,
+                SellerUID: userData.UID,
+                SellerImageURL: userData.ImageURL,
+                Image1: request.body.Images[0],
+                Image2: request.body.Images[1],
+                Image3: request.body.Images[2],
+                Image4: request.body.Images[3],
+                Stock: request.body.Stock,
+                Title: request.body.Title,
+                TransactionInformation: request.body.TransactionInformation,
+                isActive : true,
+                isDiscounted : false,
+                isRestocked : false
+            });
+        });
+        response.send("success");
+    }else{
+        response.send("not success");
+    }
+});
 
 export const helloWorld = functions.region("asia-east2").https.onRequest((request, response) => {
     response.send("Hello from Firebase!");
