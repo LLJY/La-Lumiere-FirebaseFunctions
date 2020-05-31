@@ -324,7 +324,7 @@ export const likeItem = functions.region("asia-east2").https.onRequest(async (da
     }
 });
 /**
- * adds the user to the item's liked users. Requires user id and itemID
+ * removes the liked item from the user, requires itemID and userID
  */
 export const unLikeItem = functions.region("asia-east2").https.onRequest(async (data, response)=>{
     try{
