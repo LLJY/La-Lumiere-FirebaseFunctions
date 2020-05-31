@@ -302,6 +302,56 @@ export const getItemBySuggestion = functions.region("asia-east2").https.onReques
         response.status(500).send(err);
     }
 });
+/**
+ * adds the user to the item's liked users. Requires user id and itemID
+ */
+export const likeItem = functions.region("asia-east2").https.onRequest(async (data, response)=>{
+    try{
+        const userSnapshot = await db.collection("users").where("UID", "==" , data.body.userID).limit(1).get();
+        userSnapshot.forEach(userDoc => {
+            //there is only one user so it is fine
+            userDoc.ref.collection("LikedItems").add({
+                ItemID : data.body.itemID
+            });
+        });
+        // invalidate the items cache and reload
+        updateItemsCache = true;
+        getAllItems(true);
+        response.send("success");
+    }catch(err){
+        console.log(err);
+        response.status(500).send(err);
+    }
+});
+/**
+ * adds the user to the item's liked users. Requires user id and itemID
+ */
+export const unLikeItem = functions.region("asia-east2").https.onRequest(async (data, response)=>{
+    try{
+        const userSnapshot = await db.collection("users").where("UID", "==" , data.body.userID).limit(1).get();
+        const promises = new Array<Promise<any>>()
+        userSnapshot.forEach(userDoc => {
+            //there is only one user so it is fine
+            const asyncFunc = async function(userDoc: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>){
+                    const liked = await userDoc.ref.collection("LikedItems").where("ItemID", "==", data.body.itemID).get();
+                    liked.forEach(element => {
+                        element.ref.delete();
+                });
+                // we don't actually need to return anything, but we will just return something so we can await it using Promise.all
+            }
+            promises.push(asyncFunc(userDoc));
+        });
+        // wait for everything to complete before returning
+        await Promise.all(promises);
+        // invalidate the items cache and reload
+        updateItemsCache = true;
+        getAllItems(true);
+        response.send("success");
+    }catch(err){
+        console.log(err);
+        response.status(500).send(err);
+    }
+});
 
 /**
  * Marks items as liked by the userID
