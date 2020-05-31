@@ -28,7 +28,9 @@ class Item {
     // mapped to an enum
     public StockStatus: number;
     //constructor will take the raw data from the database and convert it into the object.
-    constructor(ListingID: string, Title: string, seller: Seller, Likes: number, ListedTime: FirebaseFirestore.Timestamp, Price: number, Rating: number, Description: string, TransactionInformation: string, ProcurementInformation: string, Category: string, Stock: number, Image1: string, Image2: string, Image3: string, Image4: string, AdvertisementPoints: number, isDiscounted: boolean, isRestocked: boolean) {
+    public isUsed: boolean;
+    public Location: string;
+    constructor(ListingID: string, Title: string, seller: Seller, Likes: number, ListedTime: FirebaseFirestore.Timestamp, Price: number, Rating: number, Description: string, TransactionInformation: string, ProcurementInformation: string, Category: string, Stock: number, Image1: string, Image2: string, Image3: string, Image4: string, AdvertisementPoints: number, isDiscounted: boolean, isRestocked: boolean, isUsed:boolean, Location:string) {
         this.ListingID = ListingID;
         this.Title = Title;
         this.sellerName = seller.Name;
@@ -74,6 +76,8 @@ class Item {
         this.Images = images;
         // performance on the list is calculated by number of likes over time multiplied by advertisement points
         this.Performance = (Likes / ((new Date()).valueOf() - ListedTime.toDate().valueOf()) * Math.max(AdvertisementPoints, 1));
+        this.Location = Location;
+        this.isUsed = isUsed;
     }
 
 }
@@ -194,6 +198,44 @@ const getAllCategories = async function(fromObserver: Boolean = false) : Promise
         return null;
     }
 }
+/**
+ * Simple function that gets all the procurement types
+ */
+export const getProcurementTypes = functions.region("asia-east2").https.onRequest(async (data, response) => {
+    try {
+        var procurementTypes = new Array<string>();
+        const procurmentSnapshot = await db.collection("ProcurementTypes").get();
+        procurmentSnapshot.forEach(procurementDoc=>{
+            // add the name of the procurement type for every 
+            procurementTypes.push(procurementDoc.data().Name);
+        });
+        // sort by alphebetical order
+        procurementTypes = procurementTypes.sort();
+        response.send(procurementTypes);
+    } catch (err) {
+        console.log(err);
+        response.status(500).send(err);
+    }
+});
+/**
+ * Simple function that gets all the payment types
+ */
+export const getPaymentTypes = functions.region("asia-east2").https.onRequest(async (data, response) => {
+    try {
+        var paymentTypes = new Array<string>();
+        const procurmentSnapshot = await db.collection("PaymentTypes").get();
+        procurmentSnapshot.forEach(paymentDoc=>{
+            // add the name of the payment type for every 
+            paymentTypes.push(paymentDoc.data().Name);
+        });
+        // sort by alphebetical order
+        paymentTypes = paymentTypes.sort();
+        response.send(paymentTypes);
+    } catch (err) {
+        console.log(err);
+        response.status(500).send(err);
+    }
+});
 
 /**
  * Get Items from people the user follows
@@ -306,16 +348,25 @@ const getAllItems = async function (fromObserver : Boolean = false): Promise<Arr
             const processRefItem = async function (itemSeller: Seller, refItem: FirebaseFirestore.CollectionReference<FirebaseFirestore.DocumentData>): Promise<Array<Item>> {
                 var arrayItem = new Array<Item>();
                 const itemSnapshot = await refItem.get();
+                const promises = new Array<Promise<Item>>();
                 itemSnapshot.forEach((ItemDoc) => {
-                    // get the data
-                    const itemData = ItemDoc.data(); 
-                    // if title is not null, the rest of the fields are unlikely to be.
-                    if (itemData.Title as string) {
-                        // the rest of the logic to convert from database to model is in the constructor
-                        arrayItem.push(new Item(ItemDoc.id, itemData.Title, itemSeller, itemData.Likes, itemData.ListedTime, itemData.Price ,itemData.Rating, itemData.Description, itemData.TransactionInformation, itemData.ProcurementInformation, itemData.Category, itemData.Stock, itemData.Image1, itemData.Image2, itemData.Image3, itemData.Image4, itemData.AdvertisementPoints, itemData.isDiscounted, itemData.isRestocked));
+                    const asyncFunc = async function (ItemDoc: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>) {
+                        var returnItem : Item;
+                        // get the data
+                        const itemData = ItemDoc.data();
+                        // get the subcollection LikedItems and look for the number of likes the item has by .where
+                        const peopleLiked = await db.collectionGroup("LikedItems").where("ItemID", "==", ItemDoc.id).get();
+                        const likes = peopleLiked.size;
+                        // if title is not null, the rest of the fields are unlikely to be.
+                        if (itemData.Title as string) {
+                            // the rest of the logic to convert from database to model is in the constructor
+                            returnItem = new Item(ItemDoc.id, itemData.Title, itemSeller, likes, itemData.ListedTime, itemData.Price, itemData.Rating, itemData.Description, itemData.TransactionInformation, itemData.ProcurementInformation, itemData.Category, itemData.Stock, itemData.Image1, itemData.Image2, itemData.Image3, itemData.Image4, itemData.AdvertisementPoints, itemData.isDiscounted, itemData.isRestocked, itemData.isUsed, itemData.Location);
+                        }
+                        return returnItem;
                     }
+                    promises.push(asyncFunc(ItemDoc))
                 });
-                return arrayItem;
+                return await Promise.all(promises);
             }
             const processSeller = async function (sellerDoc: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>): Promise<Array<Item>> {
                 const sellerData = sellerDoc.data();
@@ -380,7 +431,7 @@ const checkUserType = async function(userID: string): Promise<number>{
 export const addItem = functions.region("asia-east2").https.onRequest(async (request, response) => {
     // do not let the user do this if the clearance level is not high enough
     if(await checkUserType(request.body.sellerUID) >= 2){
-        // ensure there is only 1 user
+        // ensure there is only 1 user3
         const userSnapshot = await db.collection("users").where("UID", "==", request.body.userID).limit(1).get();
         userSnapshot.forEach(userDoc => {
             const userData = userDoc.data();
@@ -397,10 +448,10 @@ export const addItem = functions.region("asia-east2").https.onRequest(async (req
                 SellerName: userData.Username,
                 SellerUID: userData.UID,
                 SellerImageURL: userData.ImageURL,
-                Image1: request.body.Images[0],
-                Image2: request.body.Images[1],
-                Image3: request.body.Images[2],
-                Image4: request.body.Images[3],
+                Image1: request.body.Image1,
+                Image2: request.body.Image2,
+                Image3: request.body.Image3,
+                Image4: request.body.Image4,
                 Stock: request.body.Stock,
                 Title: request.body.Title,
                 TransactionInformation: request.body.TransactionInformation,
