@@ -1,5 +1,6 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
+import { user } from "firebase-functions/lib/providers/auth";
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -12,6 +13,7 @@ class Item {
     public sellerUID: string;
     public sellerImageURL: string;
     public Likes: number;
+    public NumberSold: number;
     public ListedTime: String;
     public Price: number;
     public Rating: number;
@@ -30,13 +32,14 @@ class Item {
     //constructor will take the raw data from the database and convert it into the object.
     public isUsed: boolean;
     public Location: string;
-    constructor(ListingID: string, Title: string, seller: Seller, Likes: number, ListedTime: FirebaseFirestore.Timestamp, Price: number, Rating: number, Description: string, TransactionInformation: string, ProcurementInformation: string, Category: string, Stock: number, Image1: string, Image2: string, Image3: string, Image4: string, AdvertisementPoints: number, isDiscounted: boolean, isRestocked: boolean, isUsed:boolean, Location:string) {
+    constructor(ListingID: string, Title: string, seller: Seller, Likes: number, NumberSold:number, ListedTime: FirebaseFirestore.Timestamp, Price: number, Rating: number, Description: string, TransactionInformation: string, ProcurementInformation: string, Category: string, Stock: number, Image1: string, Image2: string, Image3: string, Image4: string, AdvertisementPoints: number, isDiscounted: boolean, isRestocked: boolean, isUsed:boolean, Location:string) {
         this.ListingID = ListingID;
         this.Title = Title;
         this.sellerName = seller.Name;
-        this.sellerUID = seller.UID;
+        this.sellerUID = seller.UID;Location
         this.sellerImageURL = seller.pictureURL;
         this.Likes = Likes;
+        this.NumberSold = NumberSold;
         this.ListedTime = ListedTime.toDate().toISOString();
         this.Price = Price;
         this.Rating = Rating;
@@ -119,6 +122,33 @@ let categoriesObserveQuery = function(){
 }, err=>{
     console.log(err)});
 }
+//TODO ADD ITEMID AS PART OF THE ID 
+//TODO ALLOW IMAGE UPDATE
+/**
+ * Update Item via the edit function.
+ */
+export const updateItem = functions.region("asia-east2").https.onRequest(async (data, response) => {
+    try {
+        const userSnapshot = await db.collection("users").where("UID", "==", data.body.userID).get();
+        userSnapshot.forEach(userDoc => {
+            // update the item document
+            const itemDoc = userDoc.ref.collection("Item").doc(data.body.ListingID).set({
+                AdvertisementPoints: 0,
+                Category: data.body.Category,
+                Description: data.body.Description,
+                Price: data.body.Price,
+                ProcurementInformation: data.body.ProcurementInformation,
+                Stock: data.body.Stock,
+                Title: data.body.Title,
+                TransactionInformation: data.body.TransactionInformation,
+            });
+        });
+        response.send("success");
+    } catch (err) {
+        console.log(err);
+        response.status(500).send(err);
+    }
+});
 /**
  * Get seller items by seller's UID
  */
@@ -314,9 +344,6 @@ export const likeItem = functions.region("asia-east2").https.onRequest(async (da
                 ItemID : data.body.itemID
             });
         });
-        // invalidate the items cache and reload
-        updateItemsCache = true;
-        getAllItems(true);
         response.send("success");
     }catch(err){
         console.log(err);
@@ -343,9 +370,6 @@ export const unLikeItem = functions.region("asia-east2").https.onRequest(async (
         });
         // wait for everything to complete before returning
         await Promise.all(promises);
-        // invalidate the items cache and reload
-        updateItemsCache = true;
-        getAllItems(true);
         response.send("success");
     }catch(err){
         console.log(err);
@@ -410,7 +434,7 @@ const getAllItems = async function (fromObserver : Boolean = false): Promise<Arr
                         // if title is not null, the rest of the fields are unlikely to be.
                         if (itemData.Title as string) {
                             // the rest of the logic to convert from database to model is in the constructor
-                            returnItem = new Item(ItemDoc.id, itemData.Title, itemSeller, likes, itemData.ListedTime, itemData.Price, itemData.Rating, itemData.Description, itemData.TransactionInformation, itemData.ProcurementInformation, itemData.Category, itemData.Stock, itemData.Image1, itemData.Image2, itemData.Image3, itemData.Image4, itemData.AdvertisementPoints, itemData.isDiscounted, itemData.isRestocked, itemData.isUsed, itemData.Location);
+                            returnItem = new Item(ItemDoc.id, itemData.Title, itemSeller, likes, itemData.NumberSold, itemData.ListedTime, itemData.Price, itemData.Rating, itemData.Description, itemData.TransactionInformation, itemData.ProcurementInformation, itemData.Category, itemData.Stock, itemData.Image1, itemData.Image2, itemData.Image3, itemData.Image4, itemData.AdvertisementPoints, itemData.isDiscounted, itemData.isRestocked, itemData.isUsed, itemData.Location);
                         }
                         return returnItem;
                     }
@@ -507,7 +531,9 @@ export const addItem = functions.region("asia-east2").https.onRequest(async (req
                 TransactionInformation: request.body.TransactionInformation,
                 isActive : true,
                 isDiscounted : false,
-                isRestocked : false
+                isRestocked : false,
+                isUsed : false,
+                Location : "temasek poly"
             });
         });
         response.send("success");
