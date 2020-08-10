@@ -87,16 +87,8 @@ class Item {
 }
 
 class Seller {
-    public Name: string;
-    public UID: string;
-    public pictureURL: string;
-
-    constructor(name: string, uid: string, pictureurl: string) {
-        this.Name = name;
-        this.UID = uid;
-        this.pictureURL = pictureurl;
+    constructor(public name: string, public uid: string, public pictureurl: string) {
     }
-
 }
 // cache all the items in the database for faster user access.
 let ItemsCache : Array<Item>;
