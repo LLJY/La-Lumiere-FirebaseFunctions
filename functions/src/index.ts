@@ -87,7 +87,7 @@ class Item {
 }
 
 class Seller {
-    constructor(public name: string, public uid: string, public pictureurl: string) {
+    constructor(public Name: string, public UID: string, public pictureURL: string) {
     }
 }
 // cache all the items in the database for faster user access.
