@@ -32,6 +32,7 @@ class Item {
     //constructor will take the raw data from the database and convert it into the object.
     public isUsed: boolean;
     public Location: string;
+    //we really should not add logic into a constructor, but im lazy so i don't really care
     constructor(ListingID: string, Title: string, seller: Seller, Likes: number, NumberSold:number, ListedTime: FirebaseFirestore.Timestamp, Price: number, Rating: number, Description: string, TransactionInformation: string, ProcurementInformation: string, Category: string, Stock: number, Image1: string, Image2: string, Image3: string, Image4: string, AdvertisementPoints: number, isDiscounted: boolean, isRestocked: boolean, isUsed:boolean, Location:string) {
         this.ListingID = ListingID;
         this.Title = Title;
