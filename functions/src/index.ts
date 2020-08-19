@@ -1,9 +1,14 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
 import { user } from "firebase-functions/lib/providers/auth";
+import { v4 as uuidv4 } from 'uuid';
+import * as util from 'util';
+import * as stream from 'stream';
 const cors = require('cors')({ origin: "*" })
 
-admin.initializeApp();
+admin.initializeApp({
+    storageBucket: "some-bucket"
+});
 const db = admin.firestore();
 const mAuth = admin.auth();
 class Item {
@@ -512,7 +517,43 @@ export const signUp = functions.region("asia-east2").https.onCall(async (data) =
 export const addItem = functions.region("asia-east2").https.onCall(async (data) => {
     // do not let the user do this if the clearance level is not high enough
     if(await checkUserType(data.sellerUID) >= 2){
-        // ensure there is only 1 user3
+        let bufferStream = new stream.PassThrough();
+        // upload the images to firebase storage
+        bufferStream.end(Buffer.from(data.Image1, 'base64'));
+        let file1 = admin.storage().bucket().file(`${uuidv4()}.jpg`);
+        const pipeline1 = util.promisify(bufferStream.pipe);
+        await pipeline1(file1.createWriteStream({metadata: {contentType: 'image/jpeg',metadata: {custom: 'metadata'}},public: true,validation: "md5"}), {});
+
+        bufferStream.end(Buffer.from(data.Image2, 'base64'));
+        let file2 = admin.storage().bucket().file(`${uuidv4()}.jpg`);
+        const pipeline2 = util.promisify(bufferStream.pipe);
+        await pipeline2(file2.createWriteStream({metadata: {contentType: 'image/jpeg',metadata: {custom: 'metadata'}},public: true,validation: "md5"}), {});
+
+        bufferStream.end(Buffer.from(data.Image3, 'base64'));
+        let file3 = admin.storage().bucket().file(`${uuidv4()}.jpg`);
+        const pipeline3 = util.promisify(bufferStream.pipe);
+        await pipeline3(file3.createWriteStream({metadata: {contentType: 'image/jpeg',metadata: {custom: 'metadata'}},public: true,validation: "md5"}), {});
+
+        bufferStream.end(Buffer.from(data.Image4, 'base64'));
+        let file4 = admin.storage().bucket().file(`${uuidv4()}.jpg`);
+        const pipeline4 = util.promisify(bufferStream.pipe);
+        await pipeline4(file4.createWriteStream({metadata: {contentType: 'image/jpeg',metadata: {custom: 'metadata'}},public: true,validation: "md5"}), {});
+        let image1Url = await file1.getSignedUrl({
+            action: 'read',
+            expires: '03/09/2491'
+        });
+        let image2Url = await file2.getSignedUrl({
+            action: 'read',
+            expires: '03/09/2491'
+        });
+        let image3Url = await file3.getSignedUrl({
+            action: 'read',
+            expires: '03/09/2491'
+        });
+        let image4Url = await file4.getSignedUrl({
+            action: 'read',
+            expires: '03/09/2491'
+        });
         const userSnapshot = await db.collection("users").where("UID", "==", data.userID).limit(1).get();
         userSnapshot.forEach(userDoc => {
             const userData = userDoc.data();
@@ -529,10 +570,10 @@ export const addItem = functions.region("asia-east2").https.onCall(async (data) 
                 SellerName: userData.Username,
                 SellerUID: userData.UID,
                 SellerImageURL: userData.ImageURL,
-                Image1: data.Image1,
-                Image2: data.Image2,
-                Image3: data.Image3,
-                Image4: data.Image4,
+                Image1: image1Url,
+                Image2: image2Url,
+                Image3: image3Url,
+                Image4: image4Url,
                 Stock: data.Stock,
                 Title: data.Title,
                 TransactionInformation: data.TransactionInformation,
