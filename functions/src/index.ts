@@ -180,6 +180,10 @@ export const getHottestItems = functions.region("asia-east2").https.onCall(async
             arrayItem = await markLikedItems(data.userID, arrayItem);
         }
         // send the response after all the final modifications
+         // if limit is given, only take x amount to limit
+         if(data.limit){
+            arrayItem = arrayItem.slice(0,data.limit);
+        }
         return arrayItem;
     } catch (err) {
         // log the error
@@ -280,14 +284,18 @@ export const getItemByFollowed = functions.region("asia-east2").https.onCall(asy
             promises1.push(user.ref.collection("Following").get());
         });
         const followerSnapshots = await Promise.all(promises1);
-        const returnList = new Array<Item>();
+        let returnList = new Array<Item>();
         followerSnapshots.forEach(followerSnapshot=>{
             followerSnapshot.forEach(followerDoc=>{
                 const followerData = followerDoc.data();
                 //avoid just filtering everything and filter it to a sublist that we will concat to the mainlist
                 returnList.push.apply(returnList, arrayItem.filter(x=> x.sellerUID == followerData.UserID));
             })
-        })
+        });
+        // if limit is given, only take x amount to limit
+        if(data.limit){
+            returnList = returnList.slice(0,data.limit);
+        }
         return returnList;
     } catch (err) {
         // log the error
@@ -319,6 +327,10 @@ export const getItemBySuggestion = functions.region("asia-east2").https.onCall(a
         //mark liked items
         if (data.userID) {
             allItems = await markLikedItems(data.userID, allItems);
+        }
+         // if limit is given, only take x amount to limit
+         if(data.limit){
+            allItems =allItems.slice(0,data.limit);
         }
         return allItems;
     }catch(err){
@@ -518,23 +530,23 @@ export const addItem = functions.region("asia-east2").https.onCall(async (data) 
     // do not let the user do this if the clearance level is not high enough
     if(await checkUserType(data.sellerUID) >= 2){
         let bufferStream = new stream.PassThrough();
-        // upload the images to firebase storage
-        bufferStream.end(Buffer.from(data.Image1, 'base64'));
+        // upload the images to firebase storage and remove the header 
+        bufferStream.end(Buffer.from(data.Image1.substring(23), 'base64'));
         let file1 = admin.storage().bucket().file(`${uuidv4()}.jpg`);
         const pipeline1 = util.promisify(bufferStream.pipe);
         await pipeline1(file1.createWriteStream({metadata: {contentType: 'image/jpeg',metadata: {custom: 'metadata'}},public: true,validation: "md5"}), {});
 
-        bufferStream.end(Buffer.from(data.Image2, 'base64'));
+        bufferStream.end(Buffer.from(data.Image2.substring(23), 'base64'));
         let file2 = admin.storage().bucket().file(`${uuidv4()}.jpg`);
         const pipeline2 = util.promisify(bufferStream.pipe);
         await pipeline2(file2.createWriteStream({metadata: {contentType: 'image/jpeg',metadata: {custom: 'metadata'}},public: true,validation: "md5"}), {});
 
-        bufferStream.end(Buffer.from(data.Image3, 'base64'));
+        bufferStream.end(Buffer.from(data.Image3.substring(23), 'base64'));
         let file3 = admin.storage().bucket().file(`${uuidv4()}.jpg`);
         const pipeline3 = util.promisify(bufferStream.pipe);
         await pipeline3(file3.createWriteStream({metadata: {contentType: 'image/jpeg',metadata: {custom: 'metadata'}},public: true,validation: "md5"}), {});
 
-        bufferStream.end(Buffer.from(data.Image4, 'base64'));
+        bufferStream.end(Buffer.from(data.Image4.substring(23), 'base64'));
         let file4 = admin.storage().bucket().file(`${uuidv4()}.jpg`);
         const pipeline4 = util.promisify(bufferStream.pipe);
         await pipeline4(file4.createWriteStream({metadata: {contentType: 'image/jpeg',metadata: {custom: 'metadata'}},public: true,validation: "md5"}), {});
