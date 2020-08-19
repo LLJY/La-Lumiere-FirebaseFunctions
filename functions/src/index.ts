@@ -1,6 +1,7 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
 import { user } from "firebase-functions/lib/providers/auth";
+const cors = require('cors')({ origin: "*" })
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -103,7 +104,7 @@ let itemsObserveQuery = function(){
         // do not await as onSnapshot is not promise aware
         getAllItems(true);
     }, err=>{
-        console.log(err);
+        console.error(err);
     });
 }
 let categoriesObserveQuery = function(){
@@ -113,97 +114,92 @@ let categoriesObserveQuery = function(){
     // do not await as onSnapshot is not promise aware
     getAllCategories(true);
 }, err=>{
-    console.log(err)});
+    console.error(err)});
 }
 //TODO ADD ITEMID AS PART OF THE ID 
 //TODO ALLOW IMAGE UPDATE
 /**
  * Update Item via the edit function.
  */
-export const updateItem = functions.region("asia-east2").https.onRequest(async (data, response) => {
+export const updateItem = functions.region("asia-east2").https.onCall(async (data) => {
     try {
-        const userSnapshot = await db.collection("users").where("UID", "==", data.body.userID).get();
+        const userSnapshot = await db.collection("users").where("UID", "==", data.userID).get();
         userSnapshot.forEach(userDoc => {
             // update the item document
-            const itemDoc = userDoc.ref.collection("Item").doc(data.body.ListingID).set({
+            const itemDoc = userDoc.ref.collection("Item").doc(data.ListingID).set({
                 AdvertisementPoints: 0,
-                Category: data.body.Category,
-                Description: data.body.Description,
-                Price: data.body.Price,
-                ProcurementInformation: data.body.ProcurementInformation,
-                Stock: data.body.Stock,
-                Title: data.body.Title,
-                TransactionInformation: data.body.TransactionInformation,
+                Category: data.Category,
+                Description: data.Description,
+                Price: data.Price,
+                ProcurementInformation: data.ProcurementInformation,
+                Stock: data.Stock,
+                Title: data.Title,
+                TransactionInformation: data.TransactionInformation,
             });
         });
-        response.send("success");
+        return "success";
     } catch (err) {
-        console.log(err);
-        response.status(500).send(err);
+        console.error(err);
+        throw err;
     }
 });
 /**
  * Get seller items by seller's UID
  */
-export const getSellerItems = functions.region("asia-east2").https.onRequest(async (data, response) => {
+export const getSellerItems = functions.region("asia-east2").https.onCall(async (data) => {
     try{
-        var allItems = await getAllItems();
+        let allItems = await getAllItems();
         // let try catch handle the error if userID is null
-        allItems = allItems.filter(x=>x.sellerUID == data.body.userID);
+        allItems = allItems.filter(x=>x.sellerUID == data.userID);
          //mark liked items
-         if (data.body.userID) {
-            allItems = await markLikedItems(data.body.userID, allItems);
+         if (data.userID) {
+            allItems = await markLikedItems(data.userID, allItems);
         }
         
         // send all the items
-        response.send(allItems);
+        return allItems;
         
     }catch(err){
-        console.log(err);
-        response.status(500).send(err);
+        console.error(err);
+        throw err;
     }
 });
 /**
  * Filters the items by the hottest/best performance level
  */
-export const getHottestItems = functions.region("asia-east2").https.onRequest(async (data, response) => {
+export const getHottestItems = functions.region("asia-east2").https.onCall(async (data) => {
     try {
        let arrayItem = await getAllItems();
         //if the userID exists in the request body, add their liked items
-        if (data.body.userID) {
-            arrayItem = await markLikedItems(data.body.userID, arrayItem);
+        if (data.userID) {
+            arrayItem = await markLikedItems(data.userID, arrayItem);
         }
         // send the response after all the final modifications
-        response.send(arrayItem);
+        return arrayItem;
     } catch (err) {
         // log the error
-        console.log(err);
-        response.status(500).send(err);
+        console.error(err);
+        throw err;
     }
 });
 
 /**
  * Simple function that gets all the item categories
  */
-export const getCategories = functions.region("asia-east2").https.onRequest(async (data, response) => {
+export const getCategories = functions.region("asia-east2").https.onCall(async (data) => {
     try {
         // just send the getAllCategories function, which handles caching too.
-        response.send(await getAllCategories());
+        return (await getAllCategories());
     } catch (err) {
-        console.log(err);
-        response.status(500).send(err);
+        console.error(err);
+        throw err;
     }
 });
 const getAllCategories = async function(fromObserver: Boolean = false) : Promise<Array<string>>{
     try {
         if(updateCategoriesCache){
         const categoriesSnapshot = await db.collection("Categories").get();
-        var categories = new Array<string>();
-        categoriesSnapshot.forEach((categoryDoc) => {
-            //add category name to the list
-            console.log(categoryDoc.data().Name);
-            categories.push(categoryDoc.data().Name);
-        });
+        let categories = new Array<string>();
         categories = categories.sort();
         // assign to the cache and return the cache when called
         CategoriesCache = categories;
@@ -217,16 +213,16 @@ const getAllCategories = async function(fromObserver: Boolean = false) : Promise
     }
     return CategoriesCache;
     } catch (err) {
-        console.log(err);
+        console.error(err);
         return null;
     }
 }
 /**
  * Simple function that gets all the procurement types
  */
-export const getProcurementTypes = functions.region("asia-east2").https.onRequest(async (data, response) => {
+export const getProcurementTypes = functions.region("asia-east2").https.onCall(async (data) => {
     try {
-        var procurementTypes = new Array<string>();
+        let procurementTypes = new Array<string>();
         const procurmentSnapshot = await db.collection("ProcurementTypes").get();
         procurmentSnapshot.forEach(procurementDoc=>{
             // add the name of the procurement type for every 
@@ -234,18 +230,18 @@ export const getProcurementTypes = functions.region("asia-east2").https.onReques
         });
         // sort by alphebetical order
         procurementTypes = procurementTypes.sort();
-        response.send(procurementTypes);
+        return procurementTypes;
     } catch (err) {
-        console.log(err);
-        response.status(500).send(err);
+        console.error(err);
+        throw err;
     }
 });
 /**
  * Simple function that gets all the payment types
  */
-export const getPaymentTypes = functions.region("asia-east2").https.onRequest(async (data, response) => {
+export const getPaymentTypes = functions.region("asia-east2").https.onCall(async (data) => {
     try {
-        var paymentTypes = new Array<string>();
+        let paymentTypes = new Array<string>();
         const procurmentSnapshot = await db.collection("PaymentTypes").get();
         procurmentSnapshot.forEach(paymentDoc=>{
             // add the name of the payment type for every 
@@ -253,28 +249,28 @@ export const getPaymentTypes = functions.region("asia-east2").https.onRequest(as
         });
         // sort by alphebetical order
         paymentTypes = paymentTypes.sort();
-        response.send(paymentTypes);
+        return (paymentTypes);
     } catch (err) {
-        console.log(err);
-        response.status(500).send(err);
+        console.error(err);
+        throw err;
     }
 });
 
 /**
  * Get Items from people the user follows
  */
-export const getItemByFollowed = functions.region("asia-east2").https.onRequest(async (data, response) => {
+export const getItemByFollowed = functions.region("asia-east2").https.onCall(async (data) => {
     try {
         // get all items so we can filter it later
         let arrayItem = await getAllItems();
         // sort by performance level
         arrayItem = arrayItem.sort(x => x.Performance);
-        if (data.body.userID) {
-            arrayItem = await markLikedItems(data.body.userID, arrayItem);
+        if (data.userID) {
+            arrayItem = await markLikedItems(data.userID, arrayItem);
         }
         // send the response after all the final modifications
         const promises1 = new Array<Promise<FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData>>>();
-        const user = await db.collection("users").where("UID", "==", data.body.userID).get();
+        const user = await db.collection("users").where("UID", "==", data.userID).get();
         user.forEach((user)=>{
             promises1.push(user.ref.collection("Following").get());
         });
@@ -287,22 +283,22 @@ export const getItemByFollowed = functions.region("asia-east2").https.onRequest(
                 returnList.push.apply(returnList, arrayItem.filter(x=> x.sellerUID == followerData.UserID));
             })
         })
-        response.send(returnList);
+        return returnList;
     } catch (err) {
         // log the error
-        console.log(err);
-        response.status(500).send(err);
+        console.error(err);
+        throw err;
     }
 });
 
 /**
  * Get suggested items by the user's ID, right now we are only filtering it by subscribed categories
  */
-export const getItemBySuggestion = functions.region("asia-east2").https.onRequest(async (data, response) => {
+export const getItemBySuggestion = functions.region("asia-east2").https.onCall(async (data) => {
     try{
         // get all items and filter it afterwards
-        var allItems = await getAllItems();
-        const userSnapshot = await db.collection('users').where("UID", "==", data.body.userID).limit(1).get();
+        let allItems = await getAllItems();
+        const userSnapshot = await db.collection('users').where("UID", "==", data.userID).limit(1).get();
         let userDoc: FirebaseFirestore.QueryDocumentSnapshot;
         // run a foreach, there is only 1 but this is the only way to get the item...
         userSnapshot.forEach((doc) => {
@@ -316,44 +312,44 @@ export const getItemBySuggestion = functions.region("asia-east2").https.onReques
             allItems = allItems.filter(x=> x.Category == categoryData.CategoryName);
         });
         //mark liked items
-        if (data.body.userID) {
-            allItems = await markLikedItems(data.body.userID, allItems);
+        if (data.userID) {
+            allItems = await markLikedItems(data.userID, allItems);
         }
-        response.send(allItems);
+        return allItems;
     }catch(err){
-        console.log(err);
-        response.status(500).send(err);
+        console.error(err);
+        throw err;
     }
 });
 /**
  * adds the user to the item's liked users. Requires user id and itemID
  */
-export const likeItem = functions.region("asia-east2").https.onRequest(async (data, response)=>{
+export const likeItem = functions.region("asia-east2").https.onCall(async (data)=>{
     try{
-        const userSnapshot = await db.collection("users").where("UID", "==" , data.body.userID).limit(1).get();
+        const userSnapshot = await db.collection("users").where("UID", "==" , data.userID).limit(1).get();
         userSnapshot.forEach(userDoc => {
             //there is only one user so it is fine
             userDoc.ref.collection("LikedItems").add({
-                ItemID : data.body.itemID
+                ItemID : data.itemID
             });
         });
-        response.send("success");
+        return "success";
     }catch(err){
-        console.log(err);
-        response.status(500).send(err);
+        console.error(err);
+        throw err;
     }
 });
 /**
  * removes the liked item from the user, requires itemID and userID
  */
-export const unLikeItem = functions.region("asia-east2").https.onRequest(async (data, response)=>{
+export const unLikeItem = functions.region("asia-east2").https.onCall(async (data)=>{
     try{
-        const userSnapshot = await db.collection("users").where("UID", "==" , data.body.userID).limit(1).get();
+        const userSnapshot = await db.collection("users").where("UID", "==" , data.userID).limit(1).get();
         const promises = new Array<Promise<any>>()
         userSnapshot.forEach(userDoc => {
             //there is only one user so it is fine
             const asyncFunc = async function(userDoc: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>){
-                    const liked = await userDoc.ref.collection("LikedItems").where("ItemID", "==", data.body.itemID).get();
+                    const liked = await userDoc.ref.collection("LikedItems").where("ItemID", "==", data.itemID).get();
                     liked.forEach(element => {
                         element.ref.delete();
                 });
@@ -363,10 +359,10 @@ export const unLikeItem = functions.region("asia-east2").https.onRequest(async (
         });
         // wait for everything to complete before returning
         await Promise.all(promises);
-        response.send("success");
+        return "success";
     }catch(err){
-        console.log(err);
-        response.status(500).send(err);
+        console.error(err);
+        throw err;
     }
 });
 
@@ -394,7 +390,7 @@ const markLikedItems = async function (userID: string, Items: Array<Item>) {
             }
         });
     } catch (err) {
-        console.log(err);
+        console.error(err);
     }
     return Items;
 }
@@ -406,19 +402,19 @@ const getAllItems = async function (fromObserver : Boolean = false): Promise<Arr
     try {
         //if the cache is due for an update, get it.
         if (updateItemsCache) {
-            var returnArray = new Array<Item>();
+            let returnArray = new Array<Item>();
             //only get sellers
             const sellerSnapshot = await db.collection("users").where("Type", "==", "Seller").get();
             // this is the list of promises/awaitables for all items
             // we will run the seller function in parallel to speed things up
             const promisesProcessSeller = new Array<Promise<Array<Item>>>();
             const processRefItem = async function (itemSeller: Seller, refItem: FirebaseFirestore.CollectionReference<FirebaseFirestore.DocumentData>): Promise<Array<Item>> {
-                var arrayItem = new Array<Item>();
+                let arrayItem = new Array<Item>();
                 const itemSnapshot = await refItem.get();
                 const promises = new Array<Promise<Item>>();
                 itemSnapshot.forEach((ItemDoc) => {
                     const asyncFunc = async function (ItemDoc: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>) {
-                        var returnItem : Item;
+                        let returnItem : Item;
                         // get the data
                         const itemData = ItemDoc.data();
                         // get the subcollection LikedItems and look for the number of likes the item has by .where
@@ -468,7 +464,7 @@ const getAllItems = async function (fromObserver : Boolean = false): Promise<Arr
         return ItemsCache;
     } catch (err) {
         // log the error
-        console.log(err);
+        console.error(err);
         // handle in try catch of other functions
         throw err;
     }
@@ -478,7 +474,7 @@ const getAllItems = async function (fromObserver : Boolean = false): Promise<Arr
  */
 const checkUserType = async function(userID: string): Promise<number>{
     const usersSnapshot = await db.collection("users").get();
-    var returnNum = -1;
+    let returnNum = -1;
     usersSnapshot.forEach((userDoc)=>{
         switch(userDoc.data().Type){
             case "Buyer":
@@ -495,33 +491,51 @@ const checkUserType = async function(userID: string): Promise<number>{
 /**
  * Function to add item, requires item object and userID
  */
-export const addItem = functions.region("asia-east2").https.onRequest(async (request, response) => {
+export const signUp = functions.region("asia-east2").https.onCall(async (data) => {
+    try {
+        const user = await admin.auth().createUser({
+            email: data.email,
+            displayName: data.username,
+            photoURL: "https://www.clipartmax.com/png/full/171-1717870_prediction-clip-art.png",
+            password: data.password,
+            disabled: false,
+            emailVerified: false,
+        });
+        // return the user's uid as a json
+        return{
+            id: user.uid
+        }
+    } catch (err) {
+        throw err;
+    }
+});
+export const addItem = functions.region("asia-east2").https.onCall(async (data) => {
     // do not let the user do this if the clearance level is not high enough
-    if(await checkUserType(request.body.sellerUID) >= 2){
+    if(await checkUserType(data.sellerUID) >= 2){
         // ensure there is only 1 user3
-        const userSnapshot = await db.collection("users").where("UID", "==", request.body.userID).limit(1).get();
+        const userSnapshot = await db.collection("users").where("UID", "==", data.userID).limit(1).get();
         userSnapshot.forEach(userDoc => {
             const userData = userDoc.data();
             userDoc.ref.collection("Items").add({
                 AdvertisementPoints : 0,
-                Category: request.body.Category,
-                Description: request.body.Description,
+                Category: data.Category,
+                Description: data.Description,
                 Likes: 0,
                 ListedTime: new Date(),
                 NumberSold: 0,
-                Price: request.body.Price,
-                ProcurementInformation: request.body.ProcurementInformation,
+                Price: data.Price,
+                ProcurementInformation: data.ProcurementInformation,
                 Rating: 0,
                 SellerName: userData.Username,
                 SellerUID: userData.UID,
                 SellerImageURL: userData.ImageURL,
-                Image1: request.body.Image1,
-                Image2: request.body.Image2,
-                Image3: request.body.Image3,
-                Image4: request.body.Image4,
-                Stock: request.body.Stock,
-                Title: request.body.Title,
-                TransactionInformation: request.body.TransactionInformation,
+                Image1: data.Image1,
+                Image2: data.Image2,
+                Image3: data.Image3,
+                Image4: data.Image4,
+                Stock: data.Stock,
+                Title: data.Title,
+                TransactionInformation: data.TransactionInformation,
                 isActive : true,
                 isDiscounted : false,
                 isRestocked : false,
@@ -529,12 +543,12 @@ export const addItem = functions.region("asia-east2").https.onRequest(async (req
                 Location : "temasek poly"
             });
         });
-        response.send("success");
+        return "success;"
     }else{
-        response.send("not success");
+        return "not success";
     }
 });
 
-export const helloWorld = functions.region("asia-east2").https.onRequest((request, response) => {
-    response.send("Hello from Firebase!");
+export const helloWorld = functions.region("asia-east2").https.onCall((data) => {
+    return "Hello from La Lumiere!";
 });
