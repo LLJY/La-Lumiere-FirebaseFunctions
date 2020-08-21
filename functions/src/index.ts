@@ -283,7 +283,7 @@ export const updateItem = functions
       throw err;
     }
   });
-  export const getLikedItemsfunctions = functions
+  export const getLikedItems = functions
   .region("asia-east2")
   .https.onCall(async (data) => {
     try{
