@@ -188,7 +188,33 @@ let uploadImage = async (base64: string) => {
       throw ex;
     }
   }; 
-
+/**
+ * Delete by item id.
+ */
+export const deleteItem = functions
+  .region("asia-east2")
+  .https.onCall(async (data) => {
+    try {
+      if ((await checkUserType(data.sellerUID)) >= 2) {
+        const userSnapshot = await db
+          .collection("users")
+          .where("UID", "==", data.userID)
+          .limit(1)
+          .get();
+        // doesn't matter, there's only one user
+        userSnapshot.forEach((userDoc) => {
+          // delete the document where listingid matches.
+          userDoc.ref.collection("Items").doc(data.item.listingId).delete();
+        });
+        return "success";
+      }
+      // let the frontend deal with this
+      return "not success";
+    } catch (ex) {
+      console.error(ex);
+      throw ex;
+    }
+  });
 /**
  * Function to add item, requires item object and userID
  */
@@ -253,7 +279,6 @@ export const addItem = functions
       throw ex;
     }
   });
-//TODO ADD ITEMID AS PART OF THE ID
 //TODO ALLOW IMAGE UPDATE
 /**
  * Update Item via the edit function.
@@ -262,22 +287,27 @@ export const updateItem = functions
   .region("asia-east2")
   .https.onCall(async (data) => {
     try {
+    // get the user which the item belongs to
       const userSnapshot = await db
         .collection("users")
         .where("UID", "==", data.userID)
+        .limit(1)
         .get();
-      userSnapshot.forEach((userDoc) => {
-        // update the item document
-        const itemDoc = userDoc.ref.collection("Item").doc(data.ListingID).set({
-          AdvertisementPoints: 0,
-          Category: data.Category,
-          Description: data.Description,
-          Price: data.Price,
-          ProcurementInformation: data.ProcurementInformation,
-          Stock: data.Stock,
-          Title: data.Title,
-          TransactionInformation: data.TransactionInformation,
-        });
+      let userDoc: any;
+      userSnapshot.forEach((doc) => {
+        userDoc = doc;
+      });
+      // update the item document
+      await userDoc.ref.collection("Items").doc(data.item.listingId).update({
+          // advertisement points will be implemented in the future
+        AdvertisementPoints: 0,
+        Category: data.item.category,
+        Description: data.item.description,
+        Price: data.item.price,
+        ProcurementInformation: data.item.procurementInformation,
+        Stock: data.item.stock,
+        Title: data.item.title,
+        TransactionInformation: data.item.transactionInformation,
       });
       return "success";
     } catch (err) {
@@ -285,7 +315,23 @@ export const updateItem = functions
       throw err;
     }
   });
-  /**
+  export const getLikedItemsfunctions = functions
+  .region("asia-east2")
+  .https.onCall(async (data) => {
+    try{
+    // get all items so we can filter it later
+    let arrayItem = await getAllItems();
+    // sort by performance level
+    arrayItem = await markLikedItems(data.userID, arrayItem);
+    arrayItem.filter(x=>x.userLiked);
+    arrayItem = arrayItem.sort((x) => x.Performance);
+    return arrayItem;
+    }catch(ex){
+        console.error(ex.toString());
+        throw ex;
+    }
+  });
+/**
  * Get Items from people the user follows
  */
 export const getItemByFollowed = functions
