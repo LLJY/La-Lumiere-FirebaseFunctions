@@ -7,7 +7,7 @@ import * as stream from 'stream';
 const cors = require('cors')({ origin: "*" })
 
 admin.initializeApp({
-    storageBucket: "some-bucket"
+    storageBucket: "la-lumire-asia"
 });
 const db = admin.firestore();
 const mAuth = admin.auth();
@@ -148,6 +148,38 @@ export const updateItem = functions.region("asia-east2").https.onCall(async (dat
         throw err;
     }
 });
+export const getUserInfo = functions.region("asia-east2").https.onCall(async(data)=>{
+    try{
+        console.log(`userID ${data.userID}`);
+        const users = await db.collection("users").where("UID", "==", data.userID).get();
+        let returnUser = new Object();
+        users.forEach(user=>{
+            let userType = 0;
+            switch(user.data().Type){
+                case "ADMIN":
+                    userType =2
+                    break;
+                case "BUYER":
+                    userType =0
+                    break;
+                case "SELLER":
+                    userType =1
+                    break;
+            }
+            returnUser = {
+                uid: user.data().UID,
+                name: user.data().Name,
+                ImageURL: user.data().ImageURL,
+                userType: userType
+            };
+        });
+        return returnUser;
+    }catch(ex){
+        console.error(ex);
+        throw ex;
+        
+    }
+});
 /**
  * Get seller items by seller's UID
  */
@@ -209,6 +241,10 @@ const getAllCategories = async function(fromObserver: Boolean = false) : Promise
         if(updateCategoriesCache){
         const categoriesSnapshot = await db.collection("Categories").get();
         let categories = new Array<string>();
+        // push the categories
+        categoriesSnapshot.forEach(category=>{
+            categories.push(category.data().Name);
+        });
         categories = categories.sort();
         // assign to the cache and return the cache when called
         CategoriesCache = categories;
@@ -518,6 +554,13 @@ export const signUp = functions.region("asia-east2").https.onCall(async (data) =
             disabled: false,
             emailVerified: false,
         });
+        db.collection("users").add({
+            ImageURL: data.ImageURL,
+            Name: data.fullName,
+            Type: "Buyer",
+            UID: data.uid,
+            Username: user.uid
+        });
         // return the user's uid as a json
         return{
             id: user.uid
@@ -526,81 +569,98 @@ export const signUp = functions.region("asia-east2").https.onCall(async (data) =
         throw err;
     }
 });
-export const addItem = functions.region("asia-east2").https.onCall(async (data) => {
-    // do not let the user do this if the clearance level is not high enough
-    if(await checkUserType(data.sellerUID) >= 2){
-        let bufferStream = new stream.PassThrough();
-        // upload the images to firebase storage and remove the header 
-        bufferStream.end(Buffer.from(data.Image1.substring(23), 'base64'));
-        let file1 = admin.storage().bucket().file(`${uuidv4()}.jpg`);
-        const pipeline1 = util.promisify(bufferStream.pipe);
-        await pipeline1(file1.createWriteStream({metadata: {contentType: 'image/jpeg',metadata: {custom: 'metadata'}},public: true,validation: "md5"}), {});
-
-        bufferStream.end(Buffer.from(data.Image2.substring(23), 'base64'));
-        let file2 = admin.storage().bucket().file(`${uuidv4()}.jpg`);
-        const pipeline2 = util.promisify(bufferStream.pipe);
-        await pipeline2(file2.createWriteStream({metadata: {contentType: 'image/jpeg',metadata: {custom: 'metadata'}},public: true,validation: "md5"}), {});
-
-        bufferStream.end(Buffer.from(data.Image3.substring(23), 'base64'));
-        let file3 = admin.storage().bucket().file(`${uuidv4()}.jpg`);
-        const pipeline3 = util.promisify(bufferStream.pipe);
-        await pipeline3(file3.createWriteStream({metadata: {contentType: 'image/jpeg',metadata: {custom: 'metadata'}},public: true,validation: "md5"}), {});
-
-        bufferStream.end(Buffer.from(data.Image4.substring(23), 'base64'));
-        let file4 = admin.storage().bucket().file(`${uuidv4()}.jpg`);
-        const pipeline4 = util.promisify(bufferStream.pipe);
-        await pipeline4(file4.createWriteStream({metadata: {contentType: 'image/jpeg',metadata: {custom: 'metadata'}},public: true,validation: "md5"}), {});
-        let image1Url = await file1.getSignedUrl({
-            action: 'read',
-            expires: '03/09/2491'
+let uploadImage = async (base64: string) => {
+  try {
+      console.log("uploading image...");
+    // create new stream
+    let bufferStream = new stream.PassThrough();
+    bufferStream.end(Buffer.from(base64.split(',')[1], "base64"));
+    // get the file reference in firebase storage and generate a uuid for the filename
+    let file = admin.storage().bucket().file(`/images/${uuidv4()}.jpg`);
+    // create a promise to await for the stream to complete
+    let returnFile: any = await new Promise((resolve, reject) => {
+      bufferStream
+        .pipe(
+          file.createWriteStream({
+            metadata: {
+              contentType: "image/jpeg",
+            },
+          })
+        )
+        // return the file
+        .on("finish", () => resolve(file))
+        .on("error", () => reject);
+    });
+    return returnFile;
+  } catch (ex) {
+      console.error(ex.toString());
+    // throw an exception to be handled.
+    throw ex;
+  }
+};
+export const addItem = functions
+  .region("asia-east2")
+  .https.onCall(async (data) => {
+    try {
+      // do not let the user do this if the clearance level is not high enough
+      if ((await checkUserType(data.sellerUID)) >= 2) {
+        let images = new Array<string>();
+        for (let index = 0; index < data.item.images.length; index++) {
+          const image = data.item.images[index];
+          // upload every image and get the url
+          images.push(
+            await(await uploadImage(image)).getSignedUrl({
+              action: "read",
+              expires: "03/09/2500",
+            })
+          );
+        }
+        console.log(`addItem Images: ${images.toString()}`);
+        const userSnapshot = await db
+          .collection("users")
+          .where("UID", "==", data.userID)
+          .limit(1)
+          .get();
+        userSnapshot.forEach((userDoc) => {
+        console.log("adding item...");
+          const userData = userDoc.data();
+          userDoc.ref.collection("Items").add({
+            AdvertisementPoints: 0,
+            Category: data.item.category,
+            Description: data.item.description,
+            Likes: 0,
+            ListedTime: new Date(),
+            NumberSold: 0,
+            Price: data.item.price,
+            ProcurementInformation: data.item.procurementInformation,
+            Rating: 0,
+            SellerName: userData.Username,
+            SellerUID: userData.UID,
+            SellerImageURL: userData.ImageURL,
+            // if the index exists, upload it, else, do not.
+            Image1: (images[0] ? images[0] : ""),
+            Image2: (images[1] ? images[1] : ""),
+            Image3: (images[2] ? images[2] : ""),
+            Image4: (images[3] ? images[3] : ""),
+            Stock: data.item.stock,
+            Title: data.item.title,
+            TransactionInformation: data.item.transactionInformation,
+            isActive: true,
+            isDiscounted: false,
+            isRestocked: false,
+            isUsed: false,
+            Location: data.item.location,
+          });
         });
-        let image2Url = await file2.getSignedUrl({
-            action: 'read',
-            expires: '03/09/2491'
-        });
-        let image3Url = await file3.getSignedUrl({
-            action: 'read',
-            expires: '03/09/2491'
-        });
-        let image4Url = await file4.getSignedUrl({
-            action: 'read',
-            expires: '03/09/2491'
-        });
-        const userSnapshot = await db.collection("users").where("UID", "==", data.userID).limit(1).get();
-        userSnapshot.forEach(userDoc => {
-            const userData = userDoc.data();
-            userDoc.ref.collection("Items").add({
-                AdvertisementPoints : 0,
-                Category: data.Category,
-                Description: data.Description,
-                Likes: 0,
-                ListedTime: new Date(),
-                NumberSold: 0,
-                Price: data.Price,
-                ProcurementInformation: data.ProcurementInformation,
-                Rating: 0,
-                SellerName: userData.Username,
-                SellerUID: userData.UID,
-                SellerImageURL: userData.ImageURL,
-                Image1: image1Url,
-                Image2: image2Url,
-                Image3: image3Url,
-                Image4: image4Url,
-                Stock: data.Stock,
-                Title: data.Title,
-                TransactionInformation: data.TransactionInformation,
-                isActive : true,
-                isDiscounted : false,
-                isRestocked : false,
-                isUsed : false,
-                Location : "temasek poly"
-            });
-        });
-        return "success;"
-    }else{
+        return "success;";
+      } else {
         return "not success";
+      }
+    } catch (ex) {
+      console.error(ex.toString());
+      throw ex;
     }
-});
+  });
 
 export const helloWorld = functions.region("asia-east2").https.onCall((data) => {
     return "Hello from La Lumiere!";
