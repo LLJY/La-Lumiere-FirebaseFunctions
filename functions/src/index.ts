@@ -1,10 +1,7 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
-import { user } from "firebase-functions/lib/providers/auth";
 import { v4 as uuidv4 } from "uuid";
-import * as util from "util";
 import * as stream from "stream";
-const cors = require("cors")({ origin: "*" });
 
 admin.initializeApp({
   storageBucket: "la-lumire-asia",
