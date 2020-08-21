@@ -656,12 +656,11 @@ try {
       const sellerData = sellerDoc.data();
       // check for non null / empty strings
       if ((sellerData.Name as string) && (sellerData.UID as string)) {
-        const sellerAuth = await mAuth.getUser(sellerData.UID);
         // this is all the seller information we need
         let itemSeller = new Seller(
-          sellerAuth.displayName,
+          sellerData.Name,
           sellerData.UID,
-          sellerAuth.photoURL
+          sellerData.ImageURL
         ); // placeholder profile picture
         const refItem = sellerDoc.ref.collection("Items");
         // push all the promises to a list so we can run all our queries in parallel
@@ -840,38 +839,44 @@ const checkUserType = async function (userID: string): Promise<number> {
 export const getUserInfo = functions
 .region("asia-east2")
 .https.onCall(async (data) => {
-  try {
-    const users = await db
-      .collection("users")
-      .where("UID", "==", data.userID)
-      .get();
-    let returnUser = new Object();
-    users.forEach((user) => {
-      let userType = 0;
-      switch (user.data().Type) {
-        case "ADMIN":
-          userType = 2;
-          break;
-        case "BUYER":
-          userType = 0;
-          break;
-        case "SELLER":
-          userType = 1;
-          break;
-      }
-      returnUser = {
-        uid: user.data().UID,
-        name: user.data().Name,
-        ImageURL: user.data().ImageURL,
-        userType: userType,
-      };
-    });
-    return returnUser;
-  } catch (ex) {
-    console.error(ex);
-    throw ex;
-  }
+  return (await getUser(data.userID));
 });
+let getUser = async(userId: string)=>{
+        try {
+          const users = await db
+            .collection("users")
+            .where("UID", "==", userId)
+            .get();
+          let returnUser = new Object();
+          users.forEach((user) => {
+            let userType = 0;
+            switch (user.data().Type) {
+              case "ADMIN":
+                userType = 2;
+                break;
+              case "BUYER":
+                userType = 0;
+                break;
+              case "SELLER":
+                userType = 1;
+                break;
+            }
+            // foreach and assign every last user with the same uid(impossible) to returnUser
+            returnUser = {
+              uid: user.data().UID,
+              name: user.data().Name,
+              ImageURL: user.data().ImageURL,
+              userType: userType,
+              about: user.data().About
+            };
+          });
+          // return returnUser;
+          return returnUser;
+        } catch (ex) {
+          console.error(ex);
+          throw ex;
+        }
+}
 
 //#endregion
 
