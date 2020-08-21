@@ -658,7 +658,7 @@ try {
       if ((sellerData.Name as string) && (sellerData.UID as string)) {
         // this is all the seller information we need
         let itemSeller = new Seller(
-          sellerData.Name,
+          sellerData.Username,
           sellerData.UID,
           sellerData.ImageURL
         ); // placeholder profile picture
@@ -807,26 +807,54 @@ const checkUserType = async function (userID: string): Promise<number> {
   .region("asia-east2")
   .https.onCall(async (data) => {
     try {
-      const user = await admin.auth().createUser({
-        email: data.email,
-        displayName: data.username,
-        photoURL:
-          "https://www.clipartmax.com/png/full/171-1717870_prediction-clip-art.png",
-        password: data.password,
-        disabled: false,
-        emailVerified: false,
-      });
-      db.collection("users").add({
-        ImageURL: data.ImageURL,
-        Name: data.fullName,
-        Type: "Buyer",
-        UID: data.uid,
-        Username: user.uid,
-      });
-      // return the user's uid as a json
-      return {
-        id: user.uid,
-      };
+        // user id is provided when logging in with a provider.
+        if(data.userID){
+            //get the user
+            let user = await admin.auth().getUser(data.userID);
+            // if there is no user in the database, update it
+            let collectionResults = await db.collection("users").where("UID", "==", data.userID).get();
+            let collectionResult;
+            if(collectionResults.size > 0){
+                //user exists! do nothing.
+                return {id: user.uid}
+            }
+            // user does not exist, create him
+            await db.collection("users").add({
+                // if photourl does not exist, use the default one.
+                ImageURL: user.photoURL? user.photoURL:"https://www.clipartmax.com/png/full/171-1717870_prediction-clip-art.png" ,
+                Name: user.displayName,
+                // user can update this later.
+                Username: user.displayName,
+                // always buyer by default
+                Type: "Buyer",
+                UID: user.uid,
+            });
+            return {id: user.uid}
+
+        }else{
+            // add the user if userID is not provided
+            const user = await admin.auth().createUser({
+                email: data.email,
+                displayName: data.username,
+                photoURL:
+                  "https://www.clipartmax.com/png/full/171-1717870_prediction-clip-art.png",
+                password: data.password,
+                disabled: false,
+                emailVerified: false,
+              });
+              db.collection("users").add({
+                ImageURL: data.ImageURL,
+                Name: data.fullName,
+                Type: "Buyer",
+                UID: data.uid,
+                Username: user.uid,
+              });
+              // return the user's uid as a json
+              return {
+                id: user.uid,
+              };
+        }
+      
     } catch (err) {
       throw err;
     }
@@ -851,13 +879,13 @@ let getUser = async(userId: string)=>{
           users.forEach((user) => {
             let userType = 0;
             switch (user.data().Type) {
-              case "ADMIN":
+              case "Admin":
                 userType = 2;
                 break;
-              case "BUYER":
+              case "Buyer":
                 userType = 0;
                 break;
-              case "SELLER":
+              case "Seller":
                 userType = 1;
                 break;
             }
@@ -867,7 +895,8 @@ let getUser = async(userId: string)=>{
               name: user.data().Name,
               ImageURL: user.data().ImageURL,
               userType: userType,
-              about: user.data().About
+              about: user.data().About,
+              username: user.data().Username,
             };
           });
           // return returnUser;
@@ -877,6 +906,56 @@ let getUser = async(userId: string)=>{
           throw ex;
         }
 }
+/**
+ * Updates users
+ */
+export const updateUser = functions
+  .region("asia-east2")
+  .https.onCall(async (data) => {
+    try {
+        // if base64 exists
+        if(data.base64){
+            // upload the base64 image and replace imageurl with the new signed url.
+            data.user.ImageURL = await (await uploadImage(data.base64)).getSignedUrl({
+                action: "read",
+                expires: "03/09/2500",
+              });
+        }
+        // get the user which the item belongs to
+        const userSnapshot = await db
+            .collection("users")
+            .where("UID", "==", data.userID)
+            .limit(1)
+            .get();
+            // there is only one user, no harm doing a foreach
+        userSnapshot.forEach((doc) => {
+            db.collection("users").doc(doc.id).update({
+                ImageURL: data.user.ImageURL,
+                Name: data.user.name,
+                Username: data.user.username,
+                About: data.user.about
+            });
+        });
+        // send a notification for my distinction.
+        var message = {
+          name: "my_notification",
+          notification: {
+            body: "Profile Updated!",
+            title: `Your profile has been successfully updated at ${new Date().toLocaleDateString()}`,
+          },
+          data: {
+            notification_foreground: "true",
+          },
+          token: data.token,
+        };
+          
+        admin.messaging().send(message)
+        return "success";
+    } catch (err) {
+      console.error(err);
+      throw err;
+    }
+  });
 
 //#endregion
 
