@@ -121,38 +121,6 @@ class Seller {
     public pictureURL: string
   ) {}
 }
-//#region Simple cache and observables to speed things up (firebase is slow as fuck).
-// cache all the items in the database for faster user access.
-let ItemsCache: Array<Item>;
-let CategoriesCache: Array<string>;
-let updateItemsCache = true;
-let updateCategoriesCache = true;
-// observe for changes in items, then update cache when necessary
-let itemsObserveQuery = function () {
-  db.collectionGroup("Items").onSnapshot(
-    (snapshot) => {
-      updateItemsCache = true;
-      // do not await as onSnapshot is not promise aware
-      getAllItems(true);
-    },
-    (err) => {
-      console.error(err);
-    }
-  );
-};
-let categoriesObserveQuery = function () {
-  db.collection("Categories").onSnapshot(
-    (snapshot) => {
-      updateCategoriesCache = true;
-      // do not await as onSnapshot is not promise aware
-      getAllCategories(true);
-    },
-    (err) => {
-      console.error(err);
-    }
-  );
-};
-//#endregion
 
 //#region Items CRUD, (get items by categories and update/add/delete items)
 
@@ -580,7 +548,6 @@ fromObserver: Boolean = false
 ): Promise<Array<Item>> {
 try {
   //if the cache is due for an update, get it.
-  if (updateItemsCache) {
     let returnArray = new Array<Item>();
     //only get sellers
     const sellerSnapshot = await db
@@ -678,14 +645,8 @@ try {
     });
     returnArray = returnArray.sort((a, b) => b.Performance - a.Performance);
     // cache has been updated.
-    updateItemsCache = false;
-    ItemsCache = returnArray;
     // avoid creating multiple observers if already observing.
-    if (!fromObserver) {
-      itemsObserveQuery();
-    }
-  }
-  return ItemsCache;
+    return returnArray;
 } catch (err) {
   // log the error
   console.error(err);
@@ -714,7 +675,6 @@ const getAllCategories = async function (
   fromObserver: Boolean = false
 ): Promise<Array<string>> {
   try {
-    if (updateCategoriesCache) {
       const categoriesSnapshot = await db.collection("Categories").get();
       let categories = new Array<string>();
       // push the categories
@@ -722,17 +682,7 @@ const getAllCategories = async function (
         categories.push(category.data().Name);
       });
       categories = categories.sort();
-      // assign to the cache and return the cache when called
-      CategoriesCache = categories;
-      // do not update the next time as it has already been updated.
-      updateCategoriesCache = false;
-      // avoid calling another observer if already from one
-      if (!fromObserver) {
-        // run the observe function so we update categories if there is an update.
-        categoriesObserveQuery();
-      }
-    }
-    return CategoriesCache;
+      return categories;
   } catch (err) {
     console.error(err);
     return null;
