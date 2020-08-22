@@ -812,12 +812,13 @@ const checkUserType = async function (userID: string): Promise<number> {
                 disabled: false,
                 emailVerified: false,
               });
-              db.collection("users").add({
+              data.ImageURL = "https://www.clipartmax.com/png/full/171-1717870_prediction-clip-art.png";
+              await db.collection("users").add({
                 ImageURL: data.ImageURL,
                 Name: data.fullName,
                 Type: "Buyer",
-                UID: data.uid,
-                Username: user.uid,
+                UID: user.uid,
+                Username: data.username,
               });
               // return the user's uid as a json
               return {
