@@ -291,7 +291,7 @@ export const updateItem = functions
     let arrayItem = await getAllItems();
     // sort by performance level
     arrayItem = await markLikedItems(data.userID, arrayItem);
-    arrayItem.filter(x=>x.userLiked);
+    arrayItem = arrayItem.filter(x=>x.userLiked);
     arrayItem = arrayItem.sort((x) => x.Performance);
     return arrayItem;
     }catch(ex){
@@ -525,11 +525,9 @@ try {
     const likedItemData = likedDoc.data();
     if (likedItemData.ItemID) {
       // lambda that marks every item with the same listing id as a liked item as liked.
-      // the ternary is to avoid marking items already true as false again.
+      // the OR is to avoid marking items already true as false again.
       Items = Items.map((x) => {
-        x.userLiked = x.userLiked
-          ? true
-          : x.ListingID == likedItemData.ItemID;
+        x.userLiked = (x.userLiked || x.ListingID == likedItemData.ItemID);
         return x;
       });
     }
@@ -539,6 +537,28 @@ try {
 }
 return Items;
 };
+export const getItemsByCategory = functions
+.region("asia-east2")
+.https.onCall(async (data) => {
+try {
+  let arrayItem = await getAllItems();
+  arrayItem = arrayItem.filter(x=>x.Category == data.category);
+  //if the userID exists in the request body, add their liked items
+  if (data.userID) {
+    arrayItem = await markLikedItems(data.userID, arrayItem);
+  }
+  // send the response after all the final modifications
+  // if limit is given, only take x amount to limit
+  if (data.limit) {
+    arrayItem = arrayItem.slice(0, data.limit);
+  }
+  return arrayItem;
+} catch (err) {
+  // log the error
+  console.error(err);
+  throw err;
+}
+});
 
 /**
 * gets all the items from firebase/firestore
